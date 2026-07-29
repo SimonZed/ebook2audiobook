@@ -1367,7 +1367,12 @@ class DeviceInstaller():
         match pkg:
             case 'onnxruntime':
                 name, tag, msg = self.check_hardware
-                if self.python_version >= (3, 12) and (devices['CUDA']['found'] or devices['XPU']['found'] or devices['ROCM']['found'] or devices['JETSON']['found']):
+                # onnxruntime-gpu ships x86_64 + win_amd64 wheels only: there is no
+                # aarch64 GPU wheel on PyPI, so jetson and any arm64 CUDA host must
+                # stay on the CPU build (NVIDIA's jetson wheels are cp310/numpy<2).
+                # cp311 is the oldest wheel in the current release, so below 3.11
+                # pip would backtrack to an ancient onnxruntime-gpu that pins numpy<2.
+                if self.python_version >= (3, 11) and self.arch in [archs['X86_64'], archs['AMD64']] and (devices['CUDA']['found'] or devices['XPU']['found'] or devices['ROCM']['found']):
                     return 'onnxruntime-gpu'
                 if name == devices['CPU']['proc'] or self.python_version < (3, 12) or self.system != systems['WINDOWS']:
                     return 'onnxruntime'
@@ -1391,6 +1396,39 @@ class DeviceInstaller():
             case _:
                 raise ValueError(f'select_pkg(): no rule for {pkg}')
 
+    def is_pkg_importable(self, pkg:str)->bool:
+        # a directory left in site-packages with no __init__.py still imports, as a
+        # namespace package with no attributes:
+        #   AttributeError: module 'onnxruntime' has no attribute '__version__'
+        #   ImportError: cannot import name 'InferenceSession' ... (unknown location)
+        # spec.origin is None in exactly that case.
+        import importlib.util
+        try:
+            spec = importlib.util.find_spec(pkg.replace('-', '_'))
+            return spec is not None and spec.origin is not None
+        except Exception:
+            return False
+
+    def clean_pkg_dir(self, pkg:str)->None:
+        # pip uninstall only removes what a distribution's RECORD lists. When two
+        # distributions share one import package (onnxruntime, onnxruntime-gpu and
+        # onnxruntime-directml all unpack into site-packages/onnxruntime/) the
+        # other one's files survive: __init__.py goes, stale provider .so files
+        # stay. Nothing but deleting the directory clears that.
+        import sysconfig
+        try:
+            purelib = sysconfig.get_paths().get('purelib')
+            if not purelib:
+                return
+            pkg_dir = os.path.join(purelib, pkg.replace('-', '_'))
+            if os.path.isdir(pkg_dir):
+                msg = f'Removing leftover {pkg_dir}…'
+                print(msg)
+                shutil.rmtree(pkg_dir, ignore_errors=True)
+        except Exception as e:
+            error = f'clean_pkg_dir(): {e}'
+            print(error)
+
     def finalize_exclusive_packages(self)->int:
         # runs AFTER the requirements pass. transitive requirements reintroduce
         # packages that were removed before it: piper-tts declares
@@ -1400,21 +1438,23 @@ class DeviceInstaller():
         try:
             for pkg, choices in self.exclusive_pkgs.items():
                 keep = re.split(r'[<>=!\[;]', self.select_pkg(pkg), 1)[0].strip()
-                losers = [choice for choice in choices if choice != keep and self.get_package_version(choice)]
-                if not losers:
+                installed = [choice for choice in choices if self.get_package_version(choice)]
+                losers = [choice for choice in installed if choice != keep]
+                # also repair an env already hollowed out by a previous swap
+                broken = bool(installed) and not self.is_pkg_importable(pkg)
+                if not losers and not broken:
                     continue
-                # onnxruntime, onnxruntime-gpu and onnxruntime-directml all unpack
-                # into the same site-packages/onnxruntime/ directory. Uninstalling
-                # one deletes every file in its RECORD — __init__.py and capi/
-                # included — which leaves the survivor as an empty namespace
-                # package:
-                #   ImportError: cannot import name 'InferenceSession'
-                #   from 'onnxruntime' (unknown location)
-                # so the keeper must be reinstalled once the losers are gone.
-                msg = f"Removing {', '.join(losers)} (this device uses {keep})…"
+                # uninstall every distribution first, then delete what they shared,
+                # then install the keeper into a clean directory. Removing only the
+                # losers leaves the keeper gutted, which is what produced
+                # 'cannot import name InferenceSession ... (unknown location)'.
+                msg = f"Resolving {pkg}: keeping {keep}, removing {', '.join(losers) if losers else 'a broken install'}…"
                 print(msg)
-                subprocess.call([sys.executable, '-m', 'pip', 'uninstall', '-y', '--root-user-action=ignore', *losers])
-                subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-cache-dir', '--force-reinstall', '--no-deps', '--root-user-action=ignore', keep])
+                if installed:
+                    subprocess.call([sys.executable, '-m', 'pip', 'uninstall', '-y', '--root-user-action=ignore', *installed])
+                self.clean_pkg_dir(pkg)
+                subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-cache-dir', '--root-user-action=ignore', keep])
+            return 0
             return 0
         except Exception as e:
             error = f'finalize_exclusive_packages() error: {e}'
