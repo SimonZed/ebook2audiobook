@@ -687,6 +687,78 @@ def load_db_blocks(db_path:str)->dict:
         print(error)
         return {}
 
+def voice_name_of(voice:str|None)->str|None:
+    if not voice:
+        return None
+    name = os.path.splitext(os.path.basename(voice))[0].replace('&', 'And')
+    return get_sanitized(name)
+
+def read_stamp_voice(db_path:str)->tuple:
+    try:
+        if not os.path.exists(db_path):
+            return False, None
+        with sqlite3.connect(db_path) as conn:
+            row = conn.execute('SELECT voice FROM stamp WHERE id=1').fetchone()
+            if row is None:
+                return False, None
+            return True, row[0]
+    except Exception as e:
+        print(f'read_stamp_voice() error: {e}')
+        return False, None
+
+def count_blocks_global_voice(db_path:str)->tuple:
+    try:
+        if not os.path.exists(db_path):
+            return False, 0, 0
+        with sqlite3.connect(db_path) as conn:
+            row = conn.execute('SELECT voice FROM stamp WHERE id=1').fetchone()
+            if row is None:
+                return False, 0, 0
+            stamp_voice = row[0]
+            total = conn.execute(
+                "SELECT COUNT(*) FROM blocks WHERE keep=1 AND TRIM(COALESCE(text,'')) <> ''"
+            ).fetchone()[0]
+            following = conn.execute(
+                "SELECT COUNT(*) FROM blocks WHERE keep=1 AND TRIM(COALESCE(text,'')) <> '' AND voice IS ?",
+                (stamp_voice,)
+            ).fetchone()[0]
+            return True, total, following
+    except Exception as e:
+        print(f'count_blocks_global_voice() error: {e}')
+        return False, 0, 0
+
+def build_voice_change_note(process_dir:str, current_voice:str|None, html:bool=True)->str|None:
+    try:
+        db_matches = glob(os.path.join(process_dir, f"{file_prefixes['current']}*.db"))
+        if not db_matches:
+            return None
+        db_path = db_matches[0]
+        has_prev, prev_voice = read_stamp_voice(db_path)
+        if not has_prev or voice_name_of(prev_voice) == voice_name_of(current_voice):
+            return None
+        prev_label = voice_name_of(prev_voice) or 'default'
+        curr_label = voice_name_of(current_voice) or 'default'
+        b0, b1, br = ('<b>', '</b>', '<br/><br/>') if html else ('', '', '\n')
+        note = (f'{br}NOTE: the previous global voice was {b0}{prev_label}{b1} but the current '
+                f'global voice is {b0}{curr_label}{b1}.')
+        ok, total, following = count_blocks_global_voice(db_path)
+        if not ok or total == 0:
+            return note + ' If you keep this current voice the whole ebook will be converted again.'
+        own_voice = total - following
+        if following == 0:
+            note += (f' All {total} blocks use their own voice, so none of them will be '
+                     f'reconverted because of this change.')
+        elif own_voice == 0:
+            note += f' If you keep this current voice all {total} blocks will be converted again.'
+        else:
+            note += (f' If you keep this current voice {b0}{following}{b1} of {total} blocks will be '
+                     f'converted again; the other {b0}{own_voice}{b1} keep their own block voice '
+                     f'and will not be reconverted.')
+        return note
+    except Exception as e:
+        print(f'build_voice_change_note() error: {e}')
+        return None
+
 def save_db_stamp(session_id:str)->None:
     try:
         session = context.get_session(session_id)
@@ -1114,10 +1186,32 @@ def convert2epub(session_id:str)->bool:
                     print(f'OCR completed for {page_count} image page(s).')
                 else:
                     return False
-            msg = f"Running command: {ebook_convert} {file_input} {session['epub_path']}"
+            env = dict(os.environ)
+            for key in ('PYTHONPATH', 'PYTHONHOME', 'PYTHONSTARTUP', 'PYTHONEXECUTABLE', 'PYTHONNOUSERSITE', 'LD_LIBRARY_PATH', 'LD_PRELOAD', 'DYLD_LIBRARY_PATH', 'DYLD_INSERT_LIBRARIES'):
+                env.pop(key, None)
+            prefixes = [os.path.normcase(os.path.normpath(p)) for p in (os.environ.get('CONDA_PREFIX'), os.environ.get('VIRTUAL_ENV'), sys.prefix if sys.prefix != sys.base_prefix else None) if p]
+            env['PATH'] = os.pathsep.join([p for p in env.get('PATH', '').split(os.pathsep) if p and not any(os.path.normcase(os.path.normpath(p)) == pre or os.path.normcase(os.path.normpath(p)).startswith(pre + os.sep) for pre in prefixes)])
+            env.setdefault('LANG', 'C.UTF-8')
+            env.setdefault('LC_ALL', 'C.UTF-8')
+            if sys.platform == systems['LINUX'] and not env.get('DISPLAY') and not env.get('WAYLAND_DISPLAY'):
+                env.setdefault('QT_QPA_PLATFORM', 'offscreen')
+            cmd_prefix = [ebook_convert]
+            if sys.platform != systems['WINDOWS']:
+                try:
+                    with open(ebook_convert, 'rb') as f:
+                        head = f.readline(256)
+                    if head.startswith(b'#!'):
+                        shebang = head[2:].decode('utf-8', 'replace').strip()
+                        if shebang.startswith('/usr/bin/env') and 'python' in shebang:
+                            interpreter = shutil.which(shebang.split()[-1], path=env['PATH'])
+                            if interpreter:
+                                cmd_prefix = [interpreter, ebook_convert]
+                except OSError:
+                    pass
+            msg = f"Running command: {' '.join(cmd_prefix)} {file_input} {session['epub_path']}"
             print(msg)
-            cmd = [
-                    ebook_convert, file_input, session['epub_path'],
+            cmd = cmd_prefix + [
+                    file_input, session['epub_path'],
                     '--input-encoding=utf-8',
                     '--output-profile=generic_eink',
                     '--flow-size=0',
@@ -1138,8 +1232,18 @@ def convert2epub(session_id:str)->bool:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                encoding='utf-8'
+                encoding='utf-8',
+                env=env
             )
+            if result.returncode != 0:
+                error = f'ebook-convert exited {result.returncode}\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}'
+                print(error)
+                show_alert(session_id, {"type": "error", "msg": error})
+                return False
+            if not os.path.exists(session['epub_path']) or os.path.getsize(session['epub_path']) == 0:
+                error = f"ebook-convert produced no output: {session['epub_path']}"
+                print(error)
+                return False
             print(result.stdout)
             return True
         except subprocess.CalledProcessError as e:
@@ -2720,14 +2824,7 @@ def convert_chapters2audio(session_id:str)->bool:
                 if new_voice != old_voice:
                     is_voice_changed = True
                     block['voice'] = new_voice
-                    if blocks_saved:
-                        if block['id'] in prev_blocks:
-                            prev_blocks[block['id']]['voice'] = new_voice
             if is_voice_changed:
-                if blocks_saved:
-                    blocks_saved['blocks'] = list(prev_blocks.values())
-                    session['blocks_saved'] = blocks_saved
-                    save_json_blocks(session_id, 'blocks_saved')
                 blocks_current['blocks'] = blocks
                 session['blocks_current'] = blocks_current
                 save_db_blocks(session_id)
@@ -3605,6 +3702,11 @@ def convert_ebook(args:dict)->tuple:
                 audio_sentences_exist = any(Path(session['sentences_dir']).rglob(f'*.{default_audio_proc_format}'))
                 if audio_pre_final_exist or audio_sentences_exist:
                     msg = f"Warning! audio sentences or final file {ebook_name} of this conversion already exists!"
+                    # audio exists, so the previous global voice matters: warn before the prompt,
+                    # since [r]esume with a different global voice reconverts the affected blocks.
+                    voice_note = build_voice_change_note(session['process_dir'], session.get('voice'), html=False)
+                    if voice_note:
+                        msg += voice_note
                     print(msg)
                     while True:
                         choice = input("[s]kip / [r]esume / [d]elete and convert again: ").strip().lower()

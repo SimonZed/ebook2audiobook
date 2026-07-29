@@ -70,12 +70,12 @@ class GlowTTS(TTSUtils, TTSRegistry, name='glowtts'):
             msg = f"Loading TTS {self.tts_key} model, it takes a while, please be patient…"
             print(msg)
             self.cleanup_memory()
+            #if self.session['custom_model'] is not None:
+            #    msg = f"{self.session['tts_engine']} custom model not implemented yet!"
+            #    raise NotImplementedError(msg)
+            self.tts_key = self.model_path
             engine = loaded_tts.get(self.tts_key)
             if not engine:
-                #if self.session['custom_model'] is not None:
-                #    msg = f"{self.session['tts_engine']} custom model not implemented yet!"
-                #    raise NotImplementedError(msg)
-                self.tts_key = self.model_path
                 engine = self._load_api(self.tts_key, self.model_path, self.device)
             if engine:
                 msg = f"TTS {self.tts_key} Loaded!"
@@ -152,11 +152,9 @@ class GlowTTS(TTSUtils, TTSRegistry, name='glowtts'):
                                 else:
                                     current_voice_gender = detect_gender(self.params['current_voice'])
                                     voice_builtin_gender = detect_gender(tmp_in_wav)
-                                    msg = f'Cloned voice seems to be {current_voice_gender}\nBuiltin voice seems to be {voice_builtin_gender}'
-                                    print(msg)
                                     if voice_builtin_gender != current_voice_gender:
                                         semitones = -4 if current_voice_gender == 'male' else 4
-                                        msg = f'Adapting builtin voice frequencies from the clone voice…'
+                                        msg = f'Cloned voice seems to be {current_voice_gender}\nBuiltin voice seems to be {voice_builtin_gender}. Adapting builtin voice frequencies from the clone voice…'
                                         print(msg)
                                     else:
                                         semitones = 0

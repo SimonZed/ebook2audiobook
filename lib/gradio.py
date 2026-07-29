@@ -718,7 +718,7 @@ def build_interface(args:dict)->gr.Blocks:
                                         gr_row_custom_model_list = gr.Row(elem_id='gr_row_custom_model_list')
                                         with gr_row_custom_model_list:
                                             gr_custom_model_list = gr.Dropdown(label='', elem_id='gr_custom_model_list', choices=custom_model_options, type='value', interactive=True, scale=2)
-                                            gr_custom_model_train_link = gr.Markdown(value='<a href="https://huggingface.co/spaces/drewThomasson/xtts-finetune-webui-gpu" target="_blank" rel="noopener noreferrer">Create My Own Model</a>', elem_id='gr_custom_model_train_link', elem_classes=['gr-markdown'], visible=True)
+                                            gr_custom_model_train_link = gr.Markdown(value='<a href="https://huggingface.co/spaces/drewThomasson/xtts-finetune-webui-gpu" target="_blank" rel="noopener noreferrer">New Fine Tuned Model</a>', elem_id='gr_custom_model_train_link', elem_classes=['gr-markdown'], visible=True)
                                             gr_custom_model_del_btn = gr.Button('🗑', elem_id='gr_custom_model_del_btn', elem_classes=['small-btn-red'], variant='secondary', interactive=True, visible=False, scale=0, min_width=60)
                                 with gr.Group(elem_id='gr_group_output_format'):
                                     gr_output_markdown = gr.Markdown(elem_id='gr_output_markdown', elem_classes=['gr-markdown'], value='Output')
@@ -1389,7 +1389,7 @@ def build_interface(args:dict)->gr.Blocks:
                 except Exception as e:
                     error = f'_refresh_interface(): {e}'
                     exception_alert(session_id, error)
-                outputs = tuple([gr.update() for _ in range(13)])
+                outputs = tuple([gr.update() for _ in range(14)])
                 return outputs
 
             def _change_gr_audiobook_list(session_id:str, selected:str|None)->dict:
@@ -2522,6 +2522,18 @@ def build_interface(args:dict)->gr.Blocks:
                                                 session['status'] = status_tags['OVERRIDE']
                                                 session['audiobook_overridden'] = final_file
                                                 msg = f"Warning! audio sentences or final file {final_name} of this conversion already exists. If you continue resume will restart from the last sentence converted!"
+                                                # audio exists, so the previous global voice matters: if it differs from
+                                                # the one selected now, the blocks that follow the global voice will be
+                                                # reconverted. warn in the same modal rather than a second one.
+                                                if ebook_mode == ebook_modes['DIRECTORY']:
+                                                    voice_map = dict(session.get('voice_map') or {})
+                                                    current_voice = voice_map.get(os.path.abspath(source),
+                                                                    voice_map.get(os.path.basename(source), session.get('voice')))
+                                                else:
+                                                    current_voice = session.get('voice')
+                                                voice_note = build_voice_change_note(process_dir, current_voice)
+                                                if voice_note:
+                                                    msg += voice_note
                                                 return gr.update(value=_show_gr_modal(session['status'], msg), visible=True), event
                                             else:
                                                 session['status'] = status_tags['SKIP']
