@@ -4194,17 +4194,28 @@ def unload_tts_manager(tts_manager:Any)->None:
     # cleanup_models_cache() deliberately protects that key while the session is
     # still active. Order matters: popping loaded_tts frees nothing while
     # tts_manager.engine still references the model, so the engine goes first.
-    if tts_manager is None:
-        return
+    # tts_manager is None when TTSManager() itself failed (engine load OOM):
+    # there is no engine to evict, but the half-loaded model's garbage is still
+    # there, so the flush below must run regardless.
     try:
-        engine = getattr(tts_manager, 'engine', None)
-        keys = [getattr(engine, attr, None) for attr in ('tts_key', 'tts_zs_key')]
-        tts_manager.engine = None
-        engine = None
-        for key in keys:
-            if key:
-                loaded_tts.pop(key, None)
+        if tts_manager is not None:
+            engine = getattr(tts_manager, 'engine', None)
+            keys = [getattr(engine, attr, None) for attr in ('tts_key', 'tts_zs_key')]
+            tts_manager.engine = None
+            engine = None
+            for key in keys:
+                if key:
+                    loaded_tts.pop(key, None)
         gc.collect()
+        if sys.platform == 'linux':
+            # gc frees the python objects but glibc keeps the pages in its arena:
+            # on jetson unified memory those unreturned pages starve CUDA itself
+            # (NvMap ENOMEM), so hand them back to the OS.
+            try:
+                import ctypes
+                ctypes.CDLL('libc.so.6').malloc_trim(0)
+            except Exception:
+                pass
         try:
             import torch
             if torch.cuda.is_available():
@@ -4228,6 +4239,14 @@ def cleanup_models_cache()->None:
             if key not in active_models:
                 del loaded_tts[key]
         gc.collect()
+        if sys.platform == 'linux':
+            # return freed pages to the OS: on jetson unified memory glibc's
+            # retained arena counts against the same pool CUDA allocates from.
+            try:
+                import ctypes
+                ctypes.CDLL('libc.so.6').malloc_trim(0)
+            except Exception:
+                pass
         # gc drops the python refs, but the caching allocator keeps the freed blocks
         # reserved: without this the next conversion sees allocated ~14MB against
         # reserved ~4GB, and vram_dict reports driver-free so it looks fully used.
