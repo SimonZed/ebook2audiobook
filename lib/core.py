@@ -2789,6 +2789,8 @@ def convert_chapters2audio(session_id:str)->bool:
     session = context.get_session(session_id)
     if not (session and session.get('id', False)):
         return False
+    tts_manager = None
+    conversion = False
     try:
         if session['cancellation_requested']:
             return False
@@ -2950,11 +2952,18 @@ def convert_chapters2audio(session_id:str)->bool:
             save_db_stamp(session_id)
             session['blocks_saved'] = copy.deepcopy(blocks_current)
             save_json_blocks(session_id, 'blocks_saved')
+            conversion = True
             return True
     except Exception as e:
         DependencyError(e)
         exception_alert(session_id, f'convert_chapters2audio() error: {e}')
         return False
+    finally:
+        # every exit that is not a completed conversion drops the engine and evicts
+        # its models: there are ten early `return False` paths in here, so a finally
+        # is the only way to cover them all.
+        if not conversion:
+            unload_tts_manager(tts_manager)
 
 def combine_audio_sentences(session_id:str, file:str, block_id:str, sentence_count:int)->bool:
     try:
@@ -4178,6 +4187,35 @@ def reset_ebook_session(session_id:str, force:bool, filter_keys:bool)->None:
     }
     restore_session_from_data(data, session, force, filter_keys=filter_keys)
 
+def unload_tts_manager(tts_manager:Any)->None:
+    # called when convert_chapters2audio() gives up. The engine's own
+    # cleanup_memory() only flushes the caching allocator; the weights stay alive
+    # because loaded_tts holds them under the engine's key, and
+    # cleanup_models_cache() deliberately protects that key while the session is
+    # still active. Order matters: popping loaded_tts frees nothing while
+    # tts_manager.engine still references the model, so the engine goes first.
+    if tts_manager is None:
+        return
+    try:
+        engine = getattr(tts_manager, 'engine', None)
+        keys = [getattr(engine, attr, None) for attr in ('tts_key', 'tts_zs_key')]
+        tts_manager.engine = None
+        engine = None
+        for key in keys:
+            if key:
+                loaded_tts.pop(key, None)
+        gc.collect()
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.ipc_collect()
+        except Exception:
+            pass
+    except Exception as e:
+        error = f'unload_tts_manager() error: {e}'
+        print(error)
+
 def cleanup_models_cache()->None:
     try:
         active_models = {
@@ -4190,6 +4228,16 @@ def cleanup_models_cache()->None:
             if key not in active_models:
                 del loaded_tts[key]
         gc.collect()
+        # gc drops the python refs, but the caching allocator keeps the freed blocks
+        # reserved: without this the next conversion sees allocated ~14MB against
+        # reserved ~4GB, and vram_dict reports driver-free so it looks fully used.
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.ipc_collect()
+        except Exception:
+            pass
     except Exception as e:
         error = f"cleanup_models_cache() error: {e}"
         print(error)

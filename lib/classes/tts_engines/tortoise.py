@@ -58,9 +58,8 @@ class Tortoise(TTSUtils, TTSRegistry, name='tortoise'):
             self.xtts_speakers = self._load_xtts_builtin_list()
             self.device = devices['CUDA']['proc'] if self.session['device'] in [devices['CUDA']['proc'], devices['ROCM']['proc'], devices['JETSON']['proc']] else self.session['device']
             # tortoise keeps the autoregressive GPT-2, the diffusion model and the
-            # vocoder resident at the same time. In fp32 that does not fit in 4GB, so
-            # ask the engine for its own half precision path rather than wrapping the
-            # call in autocast (which would leave the weights in fp32 anyway).
+            # vocoder resident at the same time: in fp32 that does not fit in 4GB,
+            # so ask the engine for its own half precision path on low-vram cuda.
             self.half = self.device == devices['CUDA']['proc'] and not enough_vram
             self.engine = self.load_engine()
         except Exception as e:
@@ -88,35 +87,6 @@ class Tortoise(TTSUtils, TTSRegistry, name='tortoise'):
             return engine
         error = 'load_engine(): engine is None'
         raise RuntimeError(error)
-
-    def _tts_call(self, tts_kwargs:dict)->Any:
-        import gc
-        import torch
-        try:
-            with torch.inference_mode():
-                return self.engine.tts(**tts_kwargs)
-        except TypeError as e:
-            # not every coqui build forwards 'half' through tts() down to the tortoise
-            # inference signature. Drop it and run fp32 rather than failing.
-            if 'half' not in tts_kwargs:
-                raise
-            msg = f'Engine rejected half precision ({e}); retrying in fp32.'
-            print(msg)
-            tts_kwargs.pop('half')
-            with torch.inference_mode():
-                return self.engine.tts(**tts_kwargs)
-        except torch.OutOfMemoryError:
-            # a failed allocation leaves reserved-but-unused segments behind, so flush
-            # the caching allocator and try the part once more. Only the cache is
-            # dropped here: the loaded models stay where they are.
-            msg = 'CUDA out of memory, flushing the allocator cache and retrying this part…'
-            print(msg)
-            gc.collect()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-                torch.cuda.ipc_collect()
-            with torch.inference_mode():
-                return self.engine.tts(**tts_kwargs)
 
     def convert(self, sentence_file:str, sentence:str, **kwargs)->tuple:
         try:
@@ -155,16 +125,16 @@ class Tortoise(TTSUtils, TTSRegistry, name='tortoise'):
                             speaker_argument = {"speaker_wav": [speaker_wav], "speaker": self.speaker}
                         else:
                             speaker_argument = {"speaker": self.speaker, "preset": "ultra_fast"}
-                        tts_kwargs = {
-                            "text": part,
-                            "num_autoregressive_samples": 1,
-                            "diffusion_iterations": 10,
-                            **speaker_argument
-                        }
-                        if self.half:
-                            tts_kwargs['half'] = True
                         try:
-                            audio_part = self._tts_call(tts_kwargs)
+                            with torch.inference_mode():
+                                #with torch.autocast(self.device, dtype=self.amp_dtype, enabled=(self.amp_dtype != torch.float32)):
+                                audio_part = self.engine.tts(
+                                    text=part,
+                                    num_autoregressive_samples=1,
+                                    diffusion_iterations=10,
+                                    **({'half': True} if self.half else {}),
+                                    **speaker_argument
+                                )
                             if audio_part is not None and len(audio_part) > 0:
                                 if torch.is_tensor(audio_part):
                                     audio_part = audio_part.detach().cpu()
@@ -184,9 +154,8 @@ class Tortoise(TTSUtils, TTSRegistry, name='tortoise'):
                             error = f'convert() error at {e} segment: {part}'
                             return False, error
                         except Exception as e:
-                            # without this the allocator keeps every reserved segment:
-                            # after a failed part the next conversion starts with ~4GB
-                            # reserved and 14MB free, and dies too.
+                            # free the failed part's tensors before returning False;
+                            # core.py then unloads the engine via unload_tts_manager().
                             self.cleanup_memory()
                             return False, self.log_exception(f'{self.__class__.__name__}.convert() part loop', e)
                 if self.audio_segments:
