@@ -70,9 +70,6 @@ class Tortoise(TTSUtils, TTSRegistry, name='tortoise'):
         msg = f"Loading TTS {self.tts_key} model, it takes a while, please be patient…"
         print(msg)
         self.cleanup_memory()
-        #if self.session['custom_model'] is not None:
-        #    error = f"{self.session['tts_engine']} custom model not implemented yet!"
-        #    raise NotImplementedError(error)
         self.tts_key = self.model_path
         engine = loaded_tts.get(self.tts_key)
         if not engine:
@@ -82,6 +79,20 @@ class Tortoise(TTSUtils, TTSRegistry, name='tortoise'):
                 error = 'load_engine(): _load_api() failed'
                 raise RuntimeError(error) from e
         if engine:
+            # transformers 4.57 routes GPT-2 through the sdpa attention interface and the
+            # new mask builder. on the jetson torch (2.4.x aarch64 wheel) that combination
+            # produces a fully masked attention row -> NaN logits -> torch.multinomial()
+            # raises in generation/utils.py _sample(). eager keeps the old mask-add path.
+            # tortoise's GPT2InferenceModel also still assumes legacy cache tuples, which
+            # 4.57 no longer hands it, so the kv cache is bypassed on the same grounds.
+            autoregressive = getattr(getattr(engine, 'synthesizer', None), 'tts_model', None)
+            autoregressive = getattr(autoregressive, 'autoregressive', None)
+            if autoregressive is not None:
+                for module in (getattr(autoregressive, 'gpt', None), getattr(autoregressive, 'inference_model', None)):
+                    if module is not None and getattr(module, 'config', None) is not None:
+                        module.config._attn_implementation = 'eager'
+                if getattr(autoregressive, 'inference_model', None) is not None:
+                    autoregressive.inference_model.kv_cache = False
             msg = f'TTS {self.tts_key} Loaded!'
             print(msg)
             return engine
