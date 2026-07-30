@@ -1070,6 +1070,24 @@ class DeviceInstaller():
         if op == '<': return left < right
         return False
 
+    def pkg_head(self, requirement:str)->str:
+        return re.sub(r'[-_.]+', '-', re.split(r'[<>=!\[;]', requirement, 1)[0].strip().lower())
+
+    def apply_pins(self, requirements:list, pins:list)->list:
+        # the overrides dict only rewrites lines that came from requirements.txt, so
+        # a package pulling one of them indirectly (torchvggish -> resampy -> numba
+        # -> llvmlite) resolves it unpinned. On macOS Intel that means the newest
+        # llvmlite, which has no x86_64 wheel and needs LLVM 22 to build from
+        # source. Passing the pins as command-line requirements on every pip call
+        # constrains the resolver instead of hoping the line-level substitution is
+        # enough. pip rejects the same distribution twice on one command line, so
+        # anything a pin already covers is dropped from the requirement list.
+        if not pins:
+            return list(requirements)
+        heads = {self.pkg_head(spec) for spec in pins}
+        kept = [pkg for pkg in requirements if self.pkg_head(pkg) not in heads]
+        return kept + pins
+
     def install_python_packages(self)->int:
         if not os.path.exists(requirements_file):
             error = f'Warning: File {requirements_file} not found. Skipping package check.'
@@ -1092,8 +1110,15 @@ class DeviceInstaller():
         packages.append(self.select_pkg('huggingface-hub'))
         packages.append(self.select_pkg('transformers'))
         if self.system == systems['MACOS'] and platform.machine().lower() in ('x86_64', 'amd64'):
+            # last llvmlite/numba with macOS x86_64 wheels. Newer llvmlite has no
+            # wheel and needs LLVM 22 to build from source, which fails against the
+            # llvm@15 brew ships. Appended to packages as well as registered in
+            # overrides, so the pin survives even if the requirements.txt lines go
+            # away; apply_pins() then forces it onto every pip invocation.
             overrides['llvmlite'] = 'llvmlite==0.44.0'
             overrides['numba'] = 'numba==0.61.0'
+            packages.append(overrides['llvmlite'])
+            packages.append(overrides['numba'])
         try:
             with open(requirements_file, 'r') as f:
                 contents = f.read().replace('\r', '\n')
@@ -1221,25 +1246,30 @@ class DeviceInstaller():
                     msg = f'pip self-upgrade skipped (continuing with current pip): {e}'
                     print(msg)
                 base_cmd = [sys.executable, '-m', 'pip', 'install', '--no-cache-dir', '--root-user-action=ignore']
+                # empty on every platform except macOS Intel, where apply_pins() is
+                # a no-op, so nothing else changes behaviour.
+                pins = [spec for spec in overrides.values() if spec]
                 try:
                     # batch install: one resolution over all pins at once instead of
                     # one pip subprocess per package. Avoids install/downgrade churn
                     # (an unpinned package pulling a newer transformers, later undone
                     # by the pinned version) and collapses the resolver's post-install
                     # conflict summary from N near-identical dumps down to one.
-                    subprocess.check_call(base_cmd + missing_packages)
+                    subprocess.check_call(base_cmd + self.apply_pins(missing_packages, pins))
                 except subprocess.CalledProcessError:
                     # fallback: per-package to isolate failures. This base image ships
                     # some packages with no RECORD (and dirty dist-info under
                     # overlayfs), so the implicit uninstall during an upgrade can fail
                     # with uninstall-no-record-file / Errno 39. Retry without touching
                     # the existing install so pip just overwrites it.
+                    # The pins ride along on every call: an isolated resolve is where
+                    # a transitive dependency is most free to pick its own version.
                     for raw_pkg in missing_packages:
                         try:
-                            subprocess.check_call(base_cmd + [raw_pkg])
+                            subprocess.check_call(base_cmd + self.apply_pins([raw_pkg], pins))
                         except subprocess.CalledProcessError:
                             try:
-                                subprocess.check_call(base_cmd + ['--ignore-installed', raw_pkg])
+                                subprocess.check_call(base_cmd + ['--ignore-installed'] + self.apply_pins([raw_pkg], pins))
                             except subprocess.CalledProcessError as e:
                                 msg = f'Failed to install {raw_pkg}: {e}'
                                 print(msg)
@@ -1359,6 +1389,21 @@ class DeviceInstaller():
         torch_version = self.get_package_version('torch') or ''
         return self.version_tuple(torch_version, 2) >= (2, 9)
 
+    def torch_cuda_major(self)->int:
+        # read from the local version tag of the installed torch wheel
+        # ('2.6.0+cu124' -> 12) so torch never has to be imported here. Wheels from
+        # the default PyPI index carry no local tag, so fall back to whichever
+        # nvidia runtime series torch pulled in. 0 when there is no cuda at all.
+        torch_version = self.get_package_version('torch') or ''
+        match = re.search(r'\+cu(\d{2,3})', torch_version)
+        if match:
+            digits = match.group(1)
+            return int(digits[:-1]) if len(digits) == 3 else int(digits)
+        for major in (13, 12, 11):
+            if self.get_package_version(f'nvidia-cuda-runtime-cu{major}'):
+                return major
+        return 0
+
     def select_pkg(self, pkg:str)->str:
         # device-dependent requirements that PEP 508 markers cannot express.
         # returns a pip requirement string, no side effects: removing the losing
@@ -1373,6 +1418,17 @@ class DeviceInstaller():
                 # cp311 is the oldest wheel in the current release, so below 3.11
                 # pip would backtrack to an ancient onnxruntime-gpu that pins numpy<2.
                 if self.python_version >= (3, 11) and self.arch in [archs['X86_64'], archs['AMD64']] and (devices['CUDA']['found'] or devices['XPU']['found'] or devices['ROCM']['found']):
+                    # torch and onnxruntime must share the same CUDA major, or the
+                    # CUDA provider fails to load, ORT falls back to CPU silently and
+                    # piper just runs slower with no error. The onnxruntime-gpu wheel
+                    # series: <=1.18.1 is CUDA 11, 1.19-1.26 is CUDA 12, 1.27+ is
+                    # CUDA 13. No cuda major found (rocm/xpu reaching here) means
+                    # there is nothing to match, so leave it uncapped.
+                    cuda_major = self.torch_cuda_major()
+                    if cuda_major == 11:
+                        return 'onnxruntime-gpu<=1.18.1'
+                    if cuda_major == 12:
+                        return 'onnxruntime-gpu<1.27'
                     return 'onnxruntime-gpu'
                 if name == devices['CPU']['proc'] or self.python_version < (3, 12) or self.system != systems['WINDOWS']:
                     return 'onnxruntime'
