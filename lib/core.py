@@ -3789,6 +3789,8 @@ def convert_ebook(args:dict)->tuple:
                         if not devices['XPU']['found']:
                             session['device'] = devices['CPU']['proc']
                             msg += f"XPU not supported by the Torch installed!<br/>Read {default_gpu_wiki}<br/>Switching to CPU"
+                    if session['device'] == devices['CPU']['proc']:
+                        os.environ['OMP_NUM_THREADS'] = '4'
                     vram_dict = VRAMDetector().detect_vram(session['device'], session['script_mode'])
                     print(f'vram_dict: {vram_dict}')
                     total_vram_gb = vram_dict.get('total_vram_gb', 0)
@@ -3805,12 +3807,12 @@ def convert_ebook(args:dict)->tuple:
                                 os.environ['SUNO_USE_SMALL_MODELS'] = 'FALSE'  
                     if session['tts_engine'] == TTS_ENGINES['BARK']:
                         if session['free_vram_gb'] < 12.0:
-                            os.environ['SUNO_OFFLOAD_CPU'] = "TRUE"
+                            os.environ['SUNO_OFFLOAD_CPU'] = 'TRUE'
                             os.environ['SUNO_USE_SMALL_MODELS'] = "TRUE"
-                            msg_extra += f"<br/>Switching BARK to SMALL models"  
+                            msg_extra += f'<br/>Switching BARK to SMALL models'
                         else:
-                            os.environ['SUNO_OFFLOAD_CPU'] = "FALSE"
-                            os.environ['SUNO_USE_SMALL_MODELS'] = "FALSE"
+                            os.environ['SUNO_OFFLOAD_CPU'] = 'FALSE'
+                            os.environ['SUNO_USE_SMALL_MODELS'] = 'FALSE'
                     if msg == '':
                         msg_extra = f"Using {session['device'].upper()}" + msg_extra
                     device_vram_required = default_engine_settings[session['tts_engine']]['rating']['RAM'] if session['device'] == devices['CPU']['proc'] else default_engine_settings[session['tts_engine']]['rating']['VRAM']
