@@ -1426,7 +1426,13 @@ class DeviceInstaller():
                     # there is nothing to match, so leave it uncapped.
                     cuda_major = self.torch_cuda_major()
                     if cuda_major == 11:
-                        return 'onnxruntime-gpu<=1.18.1'
+                        # the last CUDA 11 wheel is onnxruntime-gpu 1.18.1, built
+                        # against numpy 1.x. check_numpy() leaves a cu118 box (torch
+                        # 2.7.1) on numpy 2.x, and 1.18.1 does not declare numpy<2,
+                        # so pip installs it and ORT then fails at import with the
+                        # _ARRAY_API / dtype-size ABI error. No usable GPU build
+                        # exists for CUDA 11 here, so stay on the CPU one.
+                        return 'onnxruntime'
                     if cuda_major == 12:
                         return 'onnxruntime-gpu<1.27'
                     return 'onnxruntime-gpu'
