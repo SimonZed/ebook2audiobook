@@ -321,6 +321,11 @@ def build_interface(args:dict)->gr.Blocks:
                     margin: auto;
                     vertical-algin: middle;
                     font-size: 20px !important;
+                    padding: 12px !important;
+                    border: none !important;
+                    border-radius: 9px !important;
+                    font-size: 16px !important;
+                    cursor: pointer !important;
                 }
                 .gr-abs-upload-btn:hover { background-color: #34d058 !important; }
                 .gr-abs-upload-btn:active, .button-red:active {
