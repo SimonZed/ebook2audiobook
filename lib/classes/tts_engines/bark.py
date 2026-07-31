@@ -55,6 +55,32 @@ class Bark(TTSUtils, TTSRegistry, name='bark'):
             raise ValueError(error)
             
     ############ TO REMOVE ONCE COQUI-TTS FIXED ################
+    def _patch_bark_attention(self, engine)->None:
+        '''bark uses the nanoGPT attention: each block picks torch sdpa via a `flash`
+        flag set at construction. on the jetson torch (2.4.x aarch64 wheel) that kernel
+        returns NaN, which bark's own sampling loops turn into the same
+        torch.multinomial() failure seen in tortoise. flip back to the manual masked
+        softmax path. causal blocks only register their `bias` mask when the flag is
+        already False, so the buffer has to be rebuilt here before flipping.
+        '''
+        import torch
+        bark_model = engine.synthesizer.tts_model
+        if getattr(bark_model, '_attention_patched', False):
+            return
+        for model_name in ('semantic_model', 'coarse_model', 'fine_model'):
+            sub_model = getattr(bark_model, model_name, None)
+            if sub_model is None:
+                continue
+            block_size = getattr(getattr(sub_model, 'config', None), 'block_size', 1024)
+            for module in sub_model.modules():
+                if getattr(module, 'flash', False) is not True:
+                    continue
+                if module.__class__.__name__ == 'CausalSelfAttention' and not hasattr(module, 'bias'):
+                    mask = torch.tril(torch.ones(block_size, block_size)).view(1, 1, block_size, block_size)
+                    module.register_buffer('bias', mask.to(next(module.parameters()).device))
+                module.flash = False
+        bark_model._attention_patched = True
+
     def _patch_bark_voice_gen(self, engine)->None:
         '''Two coqui bugs in bark's voice path:
         1. _generate_voice passes a CUDA tensor to transformers' EncodecFeatureExtractor.
@@ -124,6 +150,11 @@ class Bark(TTSUtils, TTSRegistry, name='bark'):
                 error = f'load_engine(): bark voice-gen patch failed: {e}'
                 raise RuntimeError(error) from e
         if engine:
+            try:
+                self._patch_bark_attention(engine)
+            except Exception as e:
+                error = f'load_engine(): bark attention patch failed: {e}'
+                raise RuntimeError(error) from e
             msg = f'TTS {self.tts_key} Loaded!'
             print(msg)
             return engine
