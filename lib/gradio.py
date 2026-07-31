@@ -458,8 +458,7 @@ def build_interface(args:dict)->gr.Blocks:
                 #gr_custom_model_list span[data-testid="block-info"],
                 #gr_audiobook_sentence span[data-testid="block-info"],
                 #gr_audiobook_list span[data-testid="block-info"],
-                #gr_progress span[data-testid="block-info"],
-                #gr_abs_library_id span[data-testid="block-info"]{
+                #gr_progress span[data-testid="block-info"]{
                     display: none !important;
                 }
                 #gr_row_ebook_mode { align-items: center !important; }
@@ -874,7 +873,6 @@ def build_interface(args:dict)->gr.Blocks:
                         with gr.Row(elem_id='gr_row1_abs'):
                             gr_abs_server_url = gr.Textbox(label='Server URL', elem_id='gr_abs_server_url', value=default_abs_server_url, placeholder='http://localhost:13378', lines=1, max_lines=1, interactive=True, scale=2)
                             gr_abs_api_token = gr.Textbox(label='API Token', elem_id='gr_abs_api_token', value=default_abs_api_token, type='password', placeholder='eyJ...', lines=1, max_lines=1, interactive=True, scale=1) 
-                        gr_abs_library_markdown = gr.Markdown(elem_id='gr_abs_library_markdown', elem_classes=['gr-markdown'], value='Libraries')
                         with gr.Row(elem_id='gr_row2_abs'):
                             gr_abs_library_id = gr.Dropdown(label='', elem_id='gr_abs_library_id', choices=[('Enter URL + API Token to load libraries', '')], value=default_abs_library_id or None, interactive=True, scale=2)
                             gr_abs_search_btn = gr.Button(elem_id='gr_abs_search_btn', value='🔍', elem_classes=['gr-abs-search-btn'], variant='secondary', interactive=True, scale=1)
