@@ -57,6 +57,10 @@ class Tortoise(TTSUtils, TTSRegistry, name='tortoise'):
             self.amp_dtype = self._apply_gpu_policy(enough_vram=enough_vram, seed=seed)
             self.xtts_speakers = self._load_xtts_builtin_list()
             self.device = devices['CUDA']['proc'] if self.session['device'] in [devices['CUDA']['proc'], devices['ROCM']['proc'], devices['JETSON']['proc']] else self.session['device']
+            # tortoise keeps the autoregressive GPT-2, the diffusion model and the
+            # vocoder resident at the same time: in fp32 that does not fit in 4GB,
+            # so ask the engine for its own half precision path on low-vram cuda.
+            self.half = self.device == devices['CUDA']['proc'] and not enough_vram
             self.engine = self.load_engine()
         except Exception as e:
             error = f'__init__() error: {e}'
@@ -66,9 +70,6 @@ class Tortoise(TTSUtils, TTSRegistry, name='tortoise'):
         msg = f"Loading TTS {self.tts_key} model, it takes a while, please be patient…"
         print(msg)
         self.cleanup_memory()
-        #if self.session['custom_model'] is not None:
-        #    error = f"{self.session['tts_engine']} custom model not implemented yet!"
-        #    raise NotImplementedError(error)
         self.tts_key = self.model_path
         engine = loaded_tts.get(self.tts_key)
         if not engine:
@@ -78,6 +79,20 @@ class Tortoise(TTSUtils, TTSRegistry, name='tortoise'):
                 error = 'load_engine(): _load_api() failed'
                 raise RuntimeError(error) from e
         if engine:
+            # transformers 4.57 routes GPT-2 through the sdpa attention interface and the
+            # new mask builder. on the jetson torch (2.4.x aarch64 wheel) that combination
+            # produces a fully masked attention row -> NaN logits -> torch.multinomial()
+            # raises in generation/utils.py _sample(). eager keeps the old mask-add path.
+            # tortoise's GPT2InferenceModel also still assumes legacy cache tuples, which
+            # 4.57 no longer hands it, so the kv cache is bypassed on the same grounds.
+            autoregressive = getattr(getattr(engine, 'synthesizer', None), 'tts_model', None)
+            autoregressive = getattr(autoregressive, 'autoregressive', None)
+            if autoregressive is not None:
+                for module in (getattr(autoregressive, 'gpt', None), getattr(autoregressive, 'inference_model', None)):
+                    if module is not None and getattr(module, 'config', None) is not None:
+                        module.config._attn_implementation = 'eager'
+                if getattr(autoregressive, 'inference_model', None) is not None:
+                    autoregressive.inference_model.kv_cache = False
             msg = f'TTS {self.tts_key} Loaded!'
             print(msg)
             return engine
@@ -111,6 +126,7 @@ class Tortoise(TTSUtils, TTSRegistry, name='tortoise'):
                     if not any(c.isalnum() for c in part):
                         continue
                     else:
+                        trim_audio_buffer = 0.002
                         if part.endswith("'"):
                             part = part[:-1]
                         part = re.sub(not_supported_punc_pattern, ' ', part).strip()
@@ -128,6 +144,7 @@ class Tortoise(TTSUtils, TTSRegistry, name='tortoise'):
                                     text=part,
                                     num_autoregressive_samples=1,
                                     diffusion_iterations=10,
+                                    **({'half': True} if self.half else {}),
                                     **speaker_argument
                                 )
                             if audio_part is not None and len(audio_part) > 0:
@@ -140,14 +157,20 @@ class Tortoise(TTSUtils, TTSRegistry, name='tortoise'):
                                 if part_tensor.numel() == 0:
                                     error = 'part_tensor not valid'
                                     return False, error
+                                if part[-1].isalnum() or part[-1] == '—':
+                                    part_tensor = trim_audio(part_tensor.squeeze(0), self.params['samplerate'], 0.001, trim_audio_buffer).unsqueeze(0)
                                 self.audio_segments.append(part_tensor)
                             else:
                                 error = 'audio_part not valid'
                                 return False, error
                         except IndexError as e:
+                            self.cleanup_memory()
                             error = f'convert() error at {e} segment: {part}'
                             return False, error
                         except Exception as e:
+                            # free the failed part's tensors before returning False;
+                            # core.py then unloads the engine via unload_tts_manager().
+                            self.cleanup_memory()
                             return False, self.log_exception(f'{self.__class__.__name__}.convert() part loop', e)
                 if self.audio_segments:
                     segment_tensor = torch.cat(self.audio_segments, dim=-1)

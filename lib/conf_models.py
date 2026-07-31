@@ -177,7 +177,7 @@ default_engine_settings = {
         "files": [],
         "voice": default_speaker,
         "voices": {},
-        "rating": {"VRAM": 3, "CPU": 2, "RAM": 4, "Realism": 4}
+        "rating": {"VRAM": 6, "CPU": 2, "RAM": 6, "Realism": 4}
     },
     TTS_ENGINES['PIPER']: {
         "languages": {

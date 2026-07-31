@@ -241,9 +241,13 @@ class Vits(TTSUtils, TTSRegistry, name='vits'):
                                 error = 'audio_part not valid'
                                 return False, error
                         except IndexError as e:
+                            self.cleanup_memory()
                             error = f'convert() error at {e} segment: {part}'
                             return False, error
                         except Exception as e:
+                            # free the failed part's tensors before returning False;
+                            # core.py then unloads the engine via unload_tts_manager().
+                            self.cleanup_memory()
                             return False, self.log_exception(f'{self.__class__.__name__}.convert() part loop', e)
                 if self.audio_segments:
                     segment_tensor = torch.cat(self.audio_segments, dim=-1)

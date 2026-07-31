@@ -323,7 +323,25 @@ class TTSUtils:
                 target_dev = torch.device(device)
                 is_accel = target_dev.type != 'cpu'
                 if not engine:
-                    engine = TTSEngine(model_path).to(device)
+                    engine = TTSEngine(model_path)
+                    load_error = None
+                    try:
+                        engine = engine.to(device)
+                    except Exception as e:
+                        # keep only the message. `raise ... from e` (and even a bare
+                        # raise inside this except) carries the OOM traceback upward,
+                        # and its frames pin the half-moved model — multi-GB on
+                        # jetson unified memory — for as long as the exception chain
+                        # is alive, i.e. all the way up through gradio.
+                        load_error = f'{e}'
+                        engine = None
+                    if load_error is not None:
+                        # leaving the except block dropped the last reference to the
+                        # failed model, so this flush actually frees it: gc +
+                        # malloc_trim + empty_cache. Then raise a fresh, chain-free
+                        # exception that carries nothing but the message.
+                        self.cleanup_memory()
+                        raise RuntimeError(f'TTSEngine({model_path}).to({device}) failed: {load_error}')
                 if not engine:
                     raise RuntimeError('TTSEngine returned None')
                 for syn_attr in ('synthesizer', 'voice_converter'):
