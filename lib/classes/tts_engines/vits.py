@@ -69,22 +69,24 @@ class Vits(TTSUtils, TTSRegistry, name='vits'):
             msg = f"Loading TTS {self.tts_key} model, it takes a while, please be patient…"
             print(msg)
             self.cleanup_memory()
+            if self.session['custom_model'] is not None:
+                model_path = self.session['custom_model']
+                custom_model_name = os.path.basename(os.path.normpath(model_path))
+                self.tts_key = f"{self.tts_engine}-{custom_model_name}"
+            else:
+                self.tts_key = self.model_path
             engine = loaded_tts.get(self.tts_key)
             if not engine:
                 if self.session['custom_model'] is not None:
                     try:
-                        model_path = self.session['custom_model']
                         files = default_engine_settings[self.tts_engine]['files']
                         config_path = os.path.join(model_path, files[0])
                         checkpoint_path = os.path.join(model_path, files[1])
-                        custom_model_name = os.path.basename(os.path.normpath(model_path))
-                        self.tts_key = f"{self.tts_engine}-{custom_model_name}"
                         engine = self._load_checkpoint(tts_engine=self.tts_engine, key=self.tts_key, checkpoint_path=checkpoint_path, config_path=config_path, device=self.device)
                     except Exception as e:
                         error = f'load_engine(): custom checkpoint loading failed: {e}'
                         raise RuntimeError(error) from e
                 else:
-                    self.tts_key = self.model_path
                     try:
                         engine = self._load_api(self.tts_key, self.model_path, self.device)
                     except Exception as e:
@@ -172,11 +174,9 @@ class Vits(TTSUtils, TTSRegistry, name='vits'):
                                 else:
                                     current_voice_gender = detect_gender(self.params['current_voice'])
                                     voice_builtin_gender = detect_gender(tmp_in_wav)
-                                    msg = f'Cloned voice seems to be {current_voice_gender}\nBuiltin voice seems to be {voice_builtin_gender}'
-                                    print(msg)
                                     if voice_builtin_gender != current_voice_gender:
                                         semitones = -4 if current_voice_gender == 'male' else 4
-                                        msg = f'Adapting builtin voice frequencies from the clone voice…'
+                                        msg = f'Cloned voice seems to be {current_voice_gender}\nBuiltin voice seems to be {voice_builtin_gender}. Adapting builtin voice frequencies from the clone voice…'
                                         print(msg)
                                     else:
                                         semitones = 0
@@ -241,9 +241,13 @@ class Vits(TTSUtils, TTSRegistry, name='vits'):
                                 error = 'audio_part not valid'
                                 return False, error
                         except IndexError as e:
+                            self.cleanup_memory()
                             error = f'convert() error at {e} segment: {part}'
                             return False, error
                         except Exception as e:
+                            # free the failed part's tensors before returning False;
+                            # core.py then unloads the engine via unload_tts_manager().
+                            self.cleanup_memory()
                             return False, self.log_exception(f'{self.__class__.__name__}.convert() part loop', e)
                 if self.audio_segments:
                     segment_tensor = torch.cat(self.audio_segments, dim=-1)

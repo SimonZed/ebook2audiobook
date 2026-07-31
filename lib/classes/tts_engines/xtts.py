@@ -72,16 +72,17 @@ class XTTS(TTSUtils, TTSRegistry, name='xtts'):
             msg = f'Loading TTS {self.tts_key} model, it takes a while, please be patient…'
             print(msg)
             self.cleanup_memory()
+            if self.session['custom_model'] is not None:
+                model_path = self.session['custom_model']
+                custom_model_name = os.path.basename(os.path.normpath(model_path))
+                self.tts_key = f"{self.session['tts_engine']}-{custom_model_name}"
             engine = loaded_tts.get(self.tts_key)
             if not engine:
                 if self.session['custom_model'] is not None:
                     try:
-                        model_path = self.session['custom_model']
                         config_path = os.path.join(model_path, default_engine_settings[TTS_ENGINES['XTTS']]['files'][0])
                         checkpoint_path = os.path.join(model_path, default_engine_settings[TTS_ENGINES['XTTS']]['files'][1])
                         vocab_path = os.path.join(model_path, default_engine_settings[TTS_ENGINES['XTTS']]['files'][2])
-                        custom_model_name = os.path.basename(os.path.normpath(model_path))
-                        self.tts_key = f"{self.session['tts_engine']}-{custom_model_name}"
                         engine = self._load_checkpoint(tts_engine=self.session['tts_engine'], key=self.tts_key, checkpoint_path=checkpoint_path, config_path=config_path, vocab_path=vocab_path, device=self.device)
                     except Exception as e:
                         error = f'load_engine(): custom checkpoint loading failed: {e}'
@@ -189,9 +190,13 @@ class XTTS(TTSUtils, TTSRegistry, name='xtts'):
                                 error = 'audio_part not valid'
                                 return False, error
                         except IndexError as e:
+                            self.cleanup_memory()
                             error = f'convert() error at {e} segment: {part}'
                             return False, error
                         except Exception as e:
+                            # free the failed part's tensors before returning False;
+                            # core.py then unloads the engine via unload_tts_manager().
+                            self.cleanup_memory()
                             return False, self.log_exception(f'{self.__class__.__name__}.convert() part loop', e)
                 if self.audio_segments:
                     segment_tensor = torch.cat(self.audio_segments, dim=-1)

@@ -97,6 +97,11 @@ def build_vtt_file(session:dict, vtt_path:str=None, block_indices:set=None)->tup
 
 class TTSUtils:
 
+    # Engines without a voice-conversion stage (bark, tortoise, yourtts, xtts)
+    # never assign these; shared helpers may still read them.
+    engine_zs = None
+    tts_zs_key = None
+
     def cleanup_memory(self)->None:
         import torch
         gc.collect()
@@ -199,11 +204,24 @@ class TTSUtils:
         is_cuda = bool(getattr(torch.version, 'cuda', None)) and not is_rocm
         quality_mode = bool(using_gpu and enough_vram)
         amp_dtype = torch.float32  # float32 means: caller should NOT wrap in autocast
-        # Default matmul precision (PyTorch >= 2.2)
+        # Matmul precision. 'medium'/'high' do NOT only affect CUDA TF32: on the CPU
+        # path they set the oneDNN internal GEMM dtype, and on aarch64 that turns on
+        # the ACL fast-math (bf16) kernels. That is reduced precision sneaking into a
+        # nominally fp32 run, and it is what degrades the XTTS GPT logits on Jetson.
+        # 'highest' == true IEEE fp32. TF32 stays under the explicit allow_tf32 flags.
         try:
-            torch.set_float32_matmul_precision('high' if quality_mode else 'medium')
+            torch.set_float32_matmul_precision('highest')
         except Exception:
             pass
+        # Explicit oneDNN/ACL knob (torch >= 2.7). 'ieee' == no bf16/tf32 downcast.
+        mkldnn = getattr(torch.backends, 'mkldnn', None)
+        for name in ('matmul', 'conv', 'rnn'):
+            sub = getattr(mkldnn, name, None)
+            if sub is not None and hasattr(sub, 'fp32_precision'):
+                try:
+                    sub.fp32_precision = 'ieee'
+                except Exception:
+                    pass
         if not using_gpu:
             return amp_dtype
         if has_cuda:
@@ -229,7 +247,12 @@ class TTSUtils:
                 is_jetson = is_cuda and platform.machine() in ('aarch64', 'arm64')
             except Exception:
                 is_jetson = False
-            amp_dtype = torch.float16
+            # AMP dtype. bf16 is off the table by policy. fp16 has a 5-bit exponent,
+            # so the XTTS GPT2 autoregressive decoder overflows to ±inf, softmax turns
+            # that into NaN and torch.multinomial() raises. Volta (sm_72 Xavier) and
+            # Pascal have no safe reduced-precision path for that loop, so the CUDA
+            # branch stays fp32 unless a caller opts in per-engine.
+            amp_dtype = torch.float32
             # cuDNN base config — benchmark=True is bad for TTS (variable-length inputs)
             if hasattr(torch.backends, 'cudnn'):
                 try:
@@ -243,11 +266,13 @@ class TTSUtils:
                 is_cuda and not is_jetson and not is_rocm
                 and cc_major >= 8 and quality_mode
             )
-            # SDP attention — flash is Ampere+, mem-efficient is Volta+, math always on
+            # SDP attention — flash is Ampere+, math always on. The Volta (sm_72)
+            # mem-efficient kernel is a known NaN source on Jetson, so it is gated
+            # to Ampere+ as well; math SDP stays the only path on Xavier.
             if hasattr(torch.backends, 'cuda'):
                 try:
                     torch.backends.cuda.enable_flash_sdp(cc_major >= 8)
-                    torch.backends.cuda.enable_mem_efficient_sdp(cc_major >= 7)
+                    torch.backends.cuda.enable_mem_efficient_sdp(cc_major >= 8)
                     torch.backends.cuda.enable_math_sdp(True)
                 except Exception:
                     pass
@@ -255,10 +280,14 @@ class TTSUtils:
             if hasattr(torch.backends, 'cuda') and hasattr(torch.backends.cuda, 'matmul'):
                 try:
                     torch.backends.cuda.matmul.allow_tf32 = tf32_ok
-                    # Reduced-precision reduction is only safe on Ampere+ tensor cores.
-                    torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = (
-                        bool(quality_mode) and cc_major >= 8
-                    )
+                    # No reduced-precision accumulation anywhere: amp_dtype is fp32 on
+                    # every branch, so these only fire if a caller opts into fp16/bf16
+                    # per-engine, and that must not silently lose the fp32 accumulator.
+                    torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = False
+                except Exception:
+                    pass
+                try:
+                    torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = False
                 except Exception:
                     pass
             if hasattr(torch.backends, 'cudnn'):
@@ -270,7 +299,7 @@ class TTSUtils:
         # ================= Apple MPS =================
         if has_mps:
             #torch.mps.manual_seed(seed)
-            amp_dtype = torch.float16
+            amp_dtype = torch.float32
             return amp_dtype
         # ================= Intel XPU =================
         if has_xpu:
@@ -281,7 +310,7 @@ class TTSUtils:
             #        torch.xpu.manual_seed(seed)
             #    except Exception:
             #        pass
-            return torch.bfloat16
+            return torch.float32
         return amp_dtype
 
     def _load_api(self, key:str, model_path:str, device:str)->Any:
@@ -294,7 +323,25 @@ class TTSUtils:
                 target_dev = torch.device(device)
                 is_accel = target_dev.type != 'cpu'
                 if not engine:
-                    engine = TTSEngine(model_path).to(device)
+                    engine = TTSEngine(model_path)
+                    load_error = None
+                    try:
+                        engine = engine.to(device)
+                    except Exception as e:
+                        # keep only the message. `raise ... from e` (and even a bare
+                        # raise inside this except) carries the OOM traceback upward,
+                        # and its frames pin the half-moved model — multi-GB on
+                        # jetson unified memory — for as long as the exception chain
+                        # is alive, i.e. all the way up through gradio.
+                        load_error = f'{e}'
+                        engine = None
+                    if load_error is not None:
+                        # leaving the except block dropped the last reference to the
+                        # failed model, so this flush actually frees it: gc +
+                        # malloc_trim + empty_cache. Then raise a fresh, chain-free
+                        # exception that carries nothing but the message.
+                        self.cleanup_memory()
+                        raise RuntimeError(f'TTSEngine({model_path}).to({device}) failed: {load_error}')
                 if not engine:
                     raise RuntimeError('TTSEngine returned None')
                 for syn_attr in ('synthesizer', 'voice_converter'):
@@ -450,6 +497,64 @@ class TTSUtils:
             error = f'_load_engine_zs() error: {e}'
             raise ValueError(error)
 
+    def _sanitize_sampling_params(self, params:dict)->dict:
+        # A zero/negative temperature divides the logits by ~0 and a top_k/top_p of 0
+        # masks every candidate: both hand torch.multinomial() an all-inf or all-zero
+        # row, which raises the same error fp16 overflow does.
+        out:dict = dict(params)
+        if 'temperature' in out:
+            out['temperature'] = max(float(out['temperature']), 1e-2)
+        if 'top_p' in out:
+            out['top_p'] = min(max(float(out['top_p']), 1e-3), 1.0)
+        if 'top_k' in out:
+            out['top_k'] = max(int(out['top_k']), 1)
+        if 'repetition_penalty' in out:
+            out['repetition_penalty'] = max(float(out['repetition_penalty']), 1.0)
+        if 'length_penalty' in out:
+            out['length_penalty'] = max(float(out['length_penalty']), 0.1)
+        if 'num_beams' in out:
+            out['num_beams'] = max(int(out['num_beams']), 1)
+        return out
+
+    def _xtts_inference(self, engine:Any, device:str, text:str, gpt_cond_latent:Any, speaker_embedding:Any, params:dict)->dict|bool:
+        import torch
+        device_type = torch.device(device).type
+        dtypes:list = []
+        if self.amp_dtype != torch.float32:
+            dtypes.append(self.amp_dtype)
+        dtypes.append(torch.float32)
+        for dtype in dtypes:
+            try:
+                with torch.no_grad():
+                    with torch.autocast(device_type=device_type, dtype=dtype, enabled=(dtype != torch.float32)):
+                        result = engine.inference(
+                            text=text,
+                            language=self.language_iso1,
+                            gpt_cond_latent=gpt_cond_latent,
+                            speaker_embedding=speaker_embedding,
+                            **params,
+                        )
+            except RuntimeError as e:
+                msg = str(e).lower()
+                if 'probability tensor' not in msg and 'nan' not in msg and 'inf' not in msg:
+                    raise
+                error = f'_xtts_inference() {dtype} sampling collapsed ({e}); retrying in float32'
+                print(error)
+                self.cleanup_memory()
+                continue
+            wav = result.get('wav') if isinstance(result, dict) else None
+            if wav is None:
+                error = f'_xtts_inference() {dtype} returned no waveform'
+                print(error)
+                continue
+            if not torch.isfinite(self._tensor_type(wav)).all():
+                error = f'_xtts_inference() {dtype} produced non-finite audio; retrying in float32'
+                print(error)
+                self.cleanup_memory()
+                continue
+            return result
+        return False
+
     def _check_xtts_builtin_speakers(self, current_voice:str, speaker:str)->str|bool:
         new_current_voice = ''
         proc_current_voice = ''
@@ -490,6 +595,14 @@ class TTSUtils:
                             gpt_cond_latent, speaker_embedding = self.xtts_speakers[default_engine_settings[xtts]['voices'][speaker]].values()
                         else:
                             gpt_cond_latent, speaker_embedding = engine.get_conditioning_latents(audio_path=[current_voice], load_sr=24000, sound_norm_refs=True)
+                        # speakers_xtts.pth ships CPU tensors and is not guaranteed fp32;
+                        # pin both to the compute device in fp32 before the GPT sees them.
+                        gpt_cond_latent = self._tensor_type(gpt_cond_latent).to(device=device, dtype=torch.float32)
+                        speaker_embedding = self._tensor_type(speaker_embedding).to(device=device, dtype=torch.float32)
+                        if not (torch.isfinite(gpt_cond_latent).all() and torch.isfinite(speaker_embedding).all()):
+                            error = f'_check_xtts_builtin_speakers() error: non-finite conditioning latents for {speaker}'
+                            print(error)
+                            return False
                         fine_tuned_params = {
                             key.removeprefix('xtts_'): cast_type(self.session[key])
                             for key, cast_type in {
@@ -508,17 +621,16 @@ class TTSUtils:
                             }.items()
                             if self.session.get(key) is not None
                         }
+                        fine_tuned_params = self._sanitize_sampling_params(fine_tuned_params)
                         engine.to(device)
-                        with torch.no_grad():
-                            with torch.autocast(device, dtype=self.amp_dtype, enabled=(self.amp_dtype != torch.float32)):
-                                result = engine.inference(
-                                    text=default_text.strip(),
-                                    language=self.language_iso1,
-                                    gpt_cond_latent=gpt_cond_latent,
-                                    speaker_embedding=speaker_embedding,
-                                    **fine_tuned_params,
-                                )
-                        engine.to(devices['CPU']['proc'])
+                        try:
+                            result = self._xtts_inference(engine, device, default_text.strip(), gpt_cond_latent, speaker_embedding, fine_tuned_params)
+                        finally:
+                            engine.to(devices['CPU']['proc'])
+                        if not result:
+                            error = f'_check_xtts_builtin_speakers() error: inference produced no usable audio for {speaker} in {self.language}'
+                            print(error)
+                            return False
                         audio_sentence = result.get('wav')
                         if torch.is_tensor(audio_sentence):
                             audio_sentence = audio_sentence.detach().cpu()
@@ -557,7 +669,7 @@ class TTSUtils:
                                     gc.collect()
                                     self.engine = loaded_tts.get(self.tts_key, False)
                                     if not self.engine:
-                                        self._load_engine()
+                                        self.engine = self.load_engine()
                                     return new_current_voice
                                 else:
                                     error = 'normalize_audio() error:'
