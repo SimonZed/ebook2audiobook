@@ -1282,12 +1282,12 @@ def build_interface(args:dict)->gr.Blocks:
 
             def _search_abs_libraries(session_id:str, url:str, token:str)->gr.update:
                 from lib.classes.audiobookshelf import fetch_libraries
-                if not server_url or not api_token:
+                if not url or not api_token:
                     return gr.update(choices=[('Enter URL + API Token to load libraries', '')], value=None)
                 session = context.get_session(session_id)
                 if not session or not session.get('id', False):
                     return gr.update(interactive=False)
-                libs = fetch_libraries(server_url, api_token)
+                libs = fetch_libraries(url, api_token)
                 if libs:
                     current = session.get('abs_library_id', '')
                     value = current if any(v == current for _, v in libs) else libs[0][1]
