@@ -870,13 +870,12 @@ def build_interface(args:dict)->gr.Blocks:
                                 info='Higher values lead to more creative, unpredictable outputs. Lower values make it more conservative.'
                             )
                     with gr.Tab('Audiobookshelf', elem_id='gr_tab_abs_params', elem_classes='gr-tab', visible=visible_gr_tab_abs_params) as gr_tab_abs_params:
-                        with gr.Group(elem_id='gr_group_abs_params', elem_classes=['gr-group']):
-                            with gr.Row(elem_id='gr_row1_abs'):
-                                gr_abs_server_url = gr.Textbox(label='Server URL', elem_id='gr_abs_server_url', value=default_abs_server_url, placeholder='http://localhost:13378', lines=1, max_lines=1, interactive=True)
-                                gr_abs_api_token = gr.Textbox(label='API Token', elem_id='gr_abs_api_token', value=default_abs_api_token, type='password', placeholder='eyJ...', lines=1, max_lines=1, interactive=True) 
-                            with gr.Row(elem_id='gr_row2_abs'):
-                                gr_abs_library_id = gr.Dropdown(label='Library', elem_id='gr_abs_library_id', choices=[('Enter URL + API Token to load libraries', '')], value=default_abs_library_id or None, interactive=True, scale=2)
-                                gr_abs_search_btn = gr.Button(elem_id='gr_abs_search_btn', value='🔍', elem_classes=['gr-abs-search-btn'], variant='secondary', interactive=True, scale=1)
+                        with gr.Row(elem_id='gr_row1_abs'):
+                            gr_abs_server_url = gr.Textbox(label='Server URL', elem_id='gr_abs_server_url', value=default_abs_server_url, placeholder='http://localhost:13378', lines=1, max_lines=1, interactive=True)
+                            gr_abs_api_token = gr.Textbox(label='API Token', elem_id='gr_abs_api_token', value=default_abs_api_token, type='password', placeholder='eyJ...', lines=1, max_lines=1, interactive=True) 
+                        with gr.Row(elem_id='gr_row2_abs'):
+                            gr_abs_library_id = gr.Dropdown(label='Library', elem_id='gr_abs_library_id', choices=[('Enter URL + API Token to load libraries', '')], value=default_abs_library_id or None, interactive=True, scale=2)
+                            gr_abs_search_btn = gr.Button(elem_id='gr_abs_search_btn', value='🔍', elem_classes=['gr-abs-search-btn'], variant='secondary', interactive=True, scale=1)
                         with gr.Group(elem_id='gr_group_abs_upload_btn', elem_classes=['gr-group-abs-upload-btn']):
                             gr_abs_status = gr.Textbox(elem_id='gr_abs_status', label='Status', lines=1, max_lines=1, interactive=False, visible=True)
                             gr_abs_upload_btn = gr.Button(elem_id='gr_abs_upload_btn', value='🡅', elem_classes=['gr-abs-upload-btn'], variant='secondary', interactive=False)
