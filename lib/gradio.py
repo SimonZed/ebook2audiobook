@@ -318,6 +318,8 @@ def build_interface(args:dict)->gr.Blocks:
                     font-size: 30px !important;
                 }
                 .gr-abs-search-btn {
+                    margin: auto;
+                    vertical-algin: middle;
                     font-size: 20px !important;
                 }
                 .gr-abs-upload-btn:hover { background-color: #34d058 !important; }
