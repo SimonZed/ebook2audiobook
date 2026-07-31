@@ -317,15 +317,21 @@ def build_interface(args:dict)->gr.Blocks:
                 .gr-abs-upload-btn {
                     font-size: 30px !important;
                 }
-                .gr-abs-search-btn {
-                    margin: auto;
-                    vertical-algin: middle;
+                .small-btn-lock{
+                    background-color: #752eb2 !important;
+                    font-size: 18px !important;
+                    width: 60px !important;
+                    height: 60px !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                }
+                .small-btn-lock:hover {
                     font-size: 20px !important;
-                    padding: 12px !important;
-                    border: none !important;
-                    border-radius: 9px !important;
-                    font-size: 16px !important;
-                    cursor: pointer !important;
+                }
+                .small-btn-lock:active {
+                    background: var(--body-text-color) !important;
+                    font-size: 20px !important;
+                    color: var(--body-background-fill) !important;
                 }
                 .gr-abs-upload-btn:hover { background-color: #34d058 !important; }
                 .gr-abs-upload-btn:active, .button-red:active {
@@ -883,7 +889,7 @@ def build_interface(args:dict)->gr.Blocks:
                             gr_abs_api_token = gr.Textbox(label='API Token', elem_id='gr_abs_api_token', value=default_abs_api_token, type='password', placeholder='eyJ...', lines=1, max_lines=1, interactive=True, scale=1) 
                         with gr.Row(elem_id='gr_row2_abs'):
                             gr_abs_library_id = gr.Dropdown(label='', elem_id='gr_abs_library_id', choices=[('Enter URL + API Token to load libraries', '')], value=default_abs_library_id or None, interactive=True)
-                            gr_abs_search_btn = gr.Button('🔍', elem_id='gr_abs_search_btn', elem_classes=['small-btn-lock'], variant='secondary', visible=True, interactive=True, scale=0, min_width=120)
+                            gr_abs_search_btn = gr.Button('🔍', elem_id='gr_abs_search_btn', elem_classes=['gr-abs-search-btn'], variant='secondary', visible=True, interactive=True, scale=0, min_width=120)
                         with gr.Group(elem_id='gr_group_abs_upload_btn', elem_classes=['gr-group-abs-upload-btn']):
                             gr_abs_status = gr.Textbox(elem_id='gr_abs_status', label='Status', lines=1, max_lines=1, interactive=False, visible=True)
                             gr_abs_upload_btn = gr.Button(elem_id='gr_abs_upload_btn', value='🡅', elem_classes=['gr-abs-upload-btn'], variant='secondary', interactive=False)
