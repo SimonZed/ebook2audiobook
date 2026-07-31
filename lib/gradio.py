@@ -314,11 +314,16 @@ def build_interface(args:dict)->gr.Blocks:
                     background: var(--body-text-color) !important;
                     color: var(--body-background-fill) !important;
                 }
-                .gr-abs-upload-btn {
+                .gr-abs-upload-btn, .gr-search-upload-btn {
                     font-size: 30px !important;
                 }
                 .gr-abs-upload-btn:hover { background-color: #34d058 !important; }
                 .gr-abs-upload-btn:active, .button-red:active {
+                    background: var(--body-text-color) !important;
+                    color: var(--body-background-fill) !important;
+                }
+                .gr-abs-search-btn:hover { background-color: #ec6cb9 !important; }
+                .gr-abs-search-btn:active, .button-red:active {
                     background: var(--body-text-color) !important;
                     color: var(--body-background-fill) !important;
                 }
@@ -863,11 +868,14 @@ def build_interface(args:dict)->gr.Blocks:
                             )
                     with gr.Tab('Audiobookshelf', elem_id='gr_tab_abs_params', elem_classes='gr-tab', visible=visible_gr_tab_abs_params) as gr_tab_abs_params:
                         with gr.Group(elem_id='gr_group_abs_params', elem_classes=['gr-group']):
-                            gr_abs_server_url = gr.Textbox(label='Server URL', elem_id='gr_abs_server_url', value=default_abs_server_url, placeholder='http://localhost:13378', lines=1, max_lines=1, interactive=True)
-                            gr_abs_api_token = gr.Textbox(label='API Token', elem_id='gr_abs_api_token', value=default_abs_api_token, type='password', placeholder='eyJ...', lines=1, max_lines=1, interactive=True)
-                            gr_abs_library_id = gr.Dropdown(label='Library', elem_id='gr_abs_library_id', choices=[('Enter URL + API Token to load libraries', '')], value=default_abs_library_id or None, interactive=True)
+                            with gr.Row(elem_id='gr_row1_abs'):
+                                gr_abs_server_url = gr.Textbox(label='Server URL', elem_id='gr_abs_server_url', value=default_abs_server_url, placeholder='http://localhost:13378', lines=1, max_lines=1, interactive=True)
+                                gr_abs_library_id = gr.Dropdown(label='Library', elem_id='gr_abs_library_id', choices=[('Enter URL + API Token to load libraries', '')], value=default_abs_library_id or None, interactive=True)   
+                            with gr.Row(elem_id='gr_row2_abs'):
+                                gr_abs_api_token = gr.Textbox(label='API Token', elem_id='gr_abs_api_token', value=default_abs_api_token, type='password', placeholder='eyJ...', lines=1, max_lines=1, interactive=True)
+                                gr_abs_search_btn = gr.Button(elem_id='gr_abs_search_btn', value='🔍', elem_classes=['gr-search-upload-btn'], variant='secondary', interactive=True)
+                        with gr.Group(elem_id='gr_group_abs_upload_btn', elem_classes=['gr-group-abs-upload-btn']):
                             gr_abs_status = gr.Textbox(elem_id='gr_abs_status', label='Status', lines=1, max_lines=1, interactive=False, visible=True)
-                        with gr.Group(elem_id='gr_group_abs_upload_btn', elem_classes=['gr-group-abs-upload-btn']) as gr_group_convert_btn:
                             gr_abs_upload_btn = gr.Button(elem_id='gr_abs_upload_btn', value='🡅', elem_classes=['gr-abs-upload-btn'], variant='secondary', interactive=False)
 
             gr_blocks_page = gr.Number(value=0, visible=False, precision=0)
@@ -1252,7 +1260,7 @@ def build_interface(args:dict)->gr.Blocks:
                             gr.update(visible=visible_custom_model_del_btn),
                             gr.update(value=session.get('abs_server_url', '')),
                             gr.update(value=session.get('abs_api_token', '')),
-                            _refresh_abs_libraries(session_id, session.get('abs_server_url', ''), session.get('abs_api_token', '')),
+                            _search_abs_libraries(session_id, session.get('abs_server_url', ''), session.get('abs_api_token', '')),
                             gr.update(interactive=abs_upload_enabled),
                             gr.update(value=''),
                         )
@@ -1272,32 +1280,21 @@ def build_interface(args:dict)->gr.Blocks:
                     outputs = tuple([gr.update() for _ in range(3)])
                     return outputs
 
-            def _change_gr_abs_server_url(session_id:str, val:str)->None:
-                session = context.get_session(session_id)
-                if session and session.get('id', False):
-                    session['abs_server_url'] = val
-
-            def _change_gr_abs_api_token(session_id:str, val:str)->None:
-                session = context.get_session(session_id)
-                if session and session.get('id', False):
-                    session['abs_api_token'] = val
-
-            def _change_gr_abs_library_id(session_id:str, val:str)->None:
-                session = context.get_session(session_id)
-                if session and session.get('id', False):
-                    session['abs_library_id'] = val
-
-            def _refresh_abs_libraries(session_id:str, server_url:str, api_token:str):
+            def _search_abs_libraries(session_id:str, url:str, token:str)->gr.update:
                 from lib.classes.audiobookshelf import fetch_libraries
-                session = context.get_session(session_id)
                 if not server_url or not api_token:
                     return gr.update(choices=[('Enter URL + API Token to load libraries', '')], value=None)
+                session = context.get_session(session_id)
+                if not session or not session.get('id', False):
+                    return gr.update(interactive=False)
                 libs = fetch_libraries(server_url, api_token)
                 if libs:
                     current = session.get('abs_library_id', '')
                     value = current if any(v == current for _, v in libs) else libs[0][1]
                     if value != current:
                         session['abs_library_id'] = value
+                    session['abs_server_url'] = url
+                    session['abs_api_token'] = token
                     return gr.update(choices=libs, value=value)
                 return gr.update(choices=[('No libraries found - check URL/token', '')])
 
@@ -3582,9 +3579,15 @@ def build_interface(args:dict)->gr.Blocks:
                 outputs=[gr_modal, gr_custom_model_list, gr_audiobook_list, gr_voice_list],
                 show_progress_on=[gr_progress]
             )
-            gr_abs_server_url.change(fn=_change_gr_abs_server_url, inputs=[gr_session, gr_abs_server_url], outputs=None).then(fn=_refresh_abs_libraries, inputs=[gr_session, gr_abs_server_url, gr_abs_api_token], outputs=gr_abs_library_id).then(fn=_abs_upload_enabled, inputs=[gr_session], outputs=gr_abs_upload_btn)
-            gr_abs_api_token.change(fn=_change_gr_abs_api_token, inputs=[gr_session, gr_abs_api_token], outputs=None).then(fn=_refresh_abs_libraries, inputs=[gr_session, gr_abs_server_url, gr_abs_api_token], outputs=gr_abs_library_id).then(fn=_abs_upload_enabled, inputs=[gr_session], outputs=gr_abs_upload_btn)
-            gr_abs_library_id.change(fn=_change_gr_abs_library_id, inputs=[gr_session, gr_abs_library_id], outputs=None).then(fn=_abs_upload_enabled, inputs=[gr_session], outputs=gr_abs_upload_btn)
+            gr_abs_search_btn.click(
+                fn=_search_abs_libraries,
+                inputs=[gr_session, gr_abs_server_url, gr_abs_api_token], 
+                outputs=gr_abs_library_id
+            ).then(
+                fn=_abs_upload_enabled,
+                inputs=[gr_session],
+                outputs=gr_abs_upload_btn
+            )
             gr_abs_upload_btn.click(
                 fn=lambda: gr.update(interactive=False),
                 inputs=None,
