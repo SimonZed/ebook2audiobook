@@ -317,7 +317,7 @@ def build_interface(args:dict)->gr.Blocks:
                 .gr-abs-upload-btn {
                     font-size: 30px !important;
                 }
-                .small-btn-lock{
+                .gr-abs-search-btn {
                     background-color: #752eb2 !important;
                     font-size: 18px !important;
                     width: 60px !important;
@@ -325,10 +325,10 @@ def build_interface(args:dict)->gr.Blocks:
                     margin: 0 !important;
                     padding: 0 !important;
                 }
-                .small-btn-lock:hover {
+                .gr-abs-search-btn:hover {
                     font-size: 20px !important;
                 }
-                .small-btn-lock:active {
+                .gr-abs-search-btn:active {
                     background: var(--body-text-color) !important;
                     font-size: 20px !important;
                     color: var(--body-background-fill) !important;
