@@ -458,7 +458,8 @@ def build_interface(args:dict)->gr.Blocks:
                 #gr_custom_model_list span[data-testid="block-info"],
                 #gr_audiobook_sentence span[data-testid="block-info"],
                 #gr_audiobook_list span[data-testid="block-info"],
-                #gr_progress span[data-testid="block-info"]{
+                #gr_progress span[data-testid="block-info"],
+                #gr_abs_library_id span[data-testid="block-info"] {
                     display: none !important;
                 }
                 #gr_row_ebook_mode { align-items: center !important; }
