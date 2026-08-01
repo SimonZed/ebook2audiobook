@@ -321,7 +321,6 @@ def build_interface(args:dict)->gr.Blocks:
                     height: 60px !important;
                     margin: 0 !important;
                     padding: 0 !important;
-                    border-radius: 0 9px 9px 0 !important;
                 }
                 .gr-abs-search-btn:hover {
                     background-color: #FF950D !important;
