@@ -315,15 +315,16 @@ def build_interface(args:dict)->gr.Blocks:
                     color: var(--body-background-fill) !important;
                 }
                 .gr-abs-search-btn {
-                    background-color: #752eb2 !important;
+                    background-color: #D68215 !important;
                     font-size: 18px !important;
                     width: 120px !important;
                     height: 60px !important;
                     margin: 0 !important;
                     padding: 0 !important;
+                    radius: 9px !important;
                 }
                 .gr-abs-search-btn:hover {
-                    background-color: #752eb2 !important;
+                    background-color: #FF950D !important;
                     font-size: 24px !important;
                 }
                 .gr-abs-search-btn:active {
