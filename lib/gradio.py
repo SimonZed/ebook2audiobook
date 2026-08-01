@@ -1292,7 +1292,7 @@ def build_interface(args:dict)->gr.Blocks:
                     outputs = tuple([gr.update() for _ in range(3)])
                     return outputs
 
-            def _search_abs_libraries(session_id:str, url:str, token:str)->gr.update:
+            def _search_abs_libraries(session_id:str, url:str, api_token:str)->gr.update:
                 from lib.classes.audiobookshelf import fetch_libraries
                 if not url or not api_token:
                     return gr.update(choices=[('Enter URL + API Token to load libraries', '')], value=None)
