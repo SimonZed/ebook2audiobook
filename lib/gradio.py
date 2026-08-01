@@ -1306,9 +1306,9 @@ def build_interface(args:dict)->gr.Blocks:
                     if value != current:
                         session['abs_library_id'] = value
                     session['abs_server_url'] = url
-                    session['abs_api_token'] = token
+                    session['abs_api_token'] = api_token
                     return gr.update(choices=libs, value=value)
-                return gr.update(choices=[('No libraries found - check URL/token', '')])
+                return gr.update(choices=[('No libraries found - check URL/API token', '')])
 
             def _abs_upload_enabled(session_id:str)->gr.update:
                 session = context.get_session(session_id)
