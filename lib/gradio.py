@@ -1409,11 +1409,11 @@ def build_interface(args:dict)->gr.Blocks:
                         if session.get('audiobook') != selected:
                             session['audiobook'] = selected
                         visible = session['audiobook'] is not None
-                        return gr.update(visible=visible)
+                        return gr.update(visible=visible), gr.update(value=selected)
                 except Exception as e:
                     error = f'_change_gr_audiobook_list(): {e}'
                     exception_alert(session_id, error)
-                return gr.update(visible=False)
+                return gr.update(visible=False), gr.update()
 
             def _update_gr_audiobook_player(session_id:str)->tuple:
                 try:
@@ -3286,7 +3286,7 @@ def build_interface(args:dict)->gr.Blocks:
             gr_audiobook_list.change(
                 fn=_change_gr_audiobook_list,
                 inputs=[gr_session, gr_audiobook_list],
-                outputs=[gr_group_audiobook_list],
+                outputs=[gr_group_audiobook_list, gr_abs_status],
                 show_progress_on=[gr_audiobook_list]
             ).then(
                 fn=_update_gr_audiobook_player,
