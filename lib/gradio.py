@@ -314,29 +314,29 @@ def build_interface(args:dict)->gr.Blocks:
                     background: var(--body-text-color) !important;
                     color: var(--body-background-fill) !important;
                 }
-                .gr-abs-search-btn button {
+                .gr-abs-search-btn {
                     background-color: #D68215 !important;
                     font-size: 18px !important;
                     width: 120px !important;
                     height: 60px !important;
                     margin: 0 !important;
                     padding: 0 !important;
-                    radius: 9px !important;
+                    border-radius: 9px !important;
                 }
-                .gr-abs-search-btn button:hover {
+                .gr-abs-search-btn:hover {
                     background-color: #FF950D !important;
                     font-size: 24px !important;
                 }
-                .gr-abs-search-btn button:active {
+                .gr-abs-search-btn:active {
                     background: var(--body-text-color) !important;
                     font-size: 20px !important;
                     color: var(--body-background-fill) !important;
                 }
-                .gr-abs-upload-btn button {
+                .gr-abs-upload-btn {
                     font-size: 30px !important;
                 }
-                .gr-abs-upload-btn button:hover { background-color: #34d058 !important; }
-                .gr-abs-upload-btn button:active, .button-red:active {
+                .gr-abs-upload-btn:hover { background-color: #34d058 !important; }
+                .gr-abs-upload-btn:active, .button-red:active {
                     background: var(--body-text-color) !important;
                     color: var(--body-background-fill) !important;
                 }
