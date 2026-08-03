@@ -1293,7 +1293,7 @@ def build_interface(args:dict)->gr.Blocks:
                     outputs = tuple([gr.update() for _ in range(3)])
                     return outputs
 
-            def _change_gr_abs_library(session:str, url:str, api_token:str, library:str)->None:
+            def _change_gr_abs_library(session_id:str, url:str, api_token:str, library:str)->None:
                 session = context.get_session(session_id)
                 if session:
                     session['abs_library'] = library
