@@ -228,10 +228,10 @@ SML tags available:
     headless_optional_group.add_argument(cli_options[27], type=float, default=default_engine_settings[TTS_ENGINES['BARK']]['waveform_temp'], help=f"""(bark only, optional) Waveform Temperature for the model. 
     Default to config.json model.""")
     headless_optional_group.add_argument(cli_options[28], type=str, help=f'''Path to the output directory. Default is set in ./lib/conf.py''')
-    headless_optional_group.add_argument(cli_options[29], action='version', version=f'ebook2audiobook version {prog_version}', help='''Show the version of the script and exit''')
-    headless_optional_group.add_argument(cli_options[30], type=str, default='', help='''Audiobookshelf server URL (e.g. http://localhost:13378).''')
-    headless_optional_group.add_argument(cli_options[31], type=str, default='', help='''Audiobookshelf API token.''')
-    headless_optional_group.add_argument(cli_options[32], type=str, default='', help='''Audiobookshelf library ID.''')
+    headless_optional_group.add_argument(cli_options[29], type=str, default='', help='''Audiobookshelf server URL (e.g. http://localhost:13378).''')
+    headless_optional_group.add_argument(cli_options[30], type=str, default='', help='''Audiobookshelf API token.''')
+    headless_optional_group.add_argument(cli_options[31], type=str, default='', help='''Audiobookshelf library ID.''')
+    headless_optional_group.add_argument(cli_options[32], action='version', version=f'ebook2audiobook version {prog_version}', help='''Show the version of the script and exit''')
     headless_optional_group.add_argument(cli_options[33], action='store_true', help=argparse.SUPPRESS)
     headless_optional_group.add_argument(cli_options[34], action='store_true', help=argparse.SUPPRESS)
 
@@ -409,13 +409,13 @@ SML tags available:
                             all_entries = sorted(os.listdir(args['ebooks_dir']))
                             args['ebook_list'] = []
                             for name in all_entries:
-                                abs_path = os.path.abspath(os.path.join(args['ebooks_dir'], name))
-                                if not os.path.isfile(abs_path):
+                                ebook_dir_path = os.path.abspath(os.path.join(args['ebooks_dir'], name))
+                                if not os.path.isfile(ebook_dir_path):
                                     continue
                                 if not any(name.endswith(ext) for ext in ebook_formats):
                                     print(f'{name} skipped (unsupported format)')
                                     continue
-                                args['ebook_list'].append(abs_path)
+                                args['ebook_list'].append(ebook_dir_path)
                             if not args['ebook_list']:
                                 error = 'Error: No supported ebook files found in --ebooks_dir.'
                             else:

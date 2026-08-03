@@ -1411,8 +1411,8 @@ def build_interface(args:dict)->gr.Blocks:
                         if session.get('audiobook') != selected:
                             session['audiobook'] = selected
                         visible = session['audiobook'] is not None
-                        abs_file = selected if selected else ''
-                        return gr.update(visible=visible), gr.update(value=abs_file)
+                        audiobook_file = selected if selected else ''
+                        return gr.update(visible=visible), gr.update(value=audiobook_file)
                 except Exception as e:
                     error = f'_change_gr_audiobook_list(): {e}'
                     exception_alert(session_id, error)
@@ -1488,14 +1488,14 @@ def build_interface(args:dict)->gr.Blocks:
                         elif ebook_mode == ebook_modes['DIRECTORY']:
                             session['ebook_list'] = data
                             files = data or []
-                            abs_files = [os.path.abspath(f) for f in files] if isinstance(files, list) else []
+                            ebook_files = [os.path.abspath(f) for f in files] if isinstance(files, list) else []
                             prev_map = dict(session.get('voice_map') or {})  # read once
                             default_voice = session.get('voice')
-                            new_map = {p: (prev_map[p] if p in prev_map else default_voice) for p in abs_files}
+                            new_map = {p: (prev_map[p] if p in prev_map else default_voice) for p in ebook_files}
                             session['voice_map'] = new_map
                             prev_selected = session.get('ebook_selected')
-                            if prev_selected and prev_selected in abs_files:
-                                new_row = abs_files.index(prev_selected)
+                            if prev_selected and prev_selected in ebook_files:
+                                new_row = ebook_files.index(prev_selected)
                                 if data is None:
                                     session['cancellation_requested'] = True
                                 else:
@@ -1543,14 +1543,14 @@ def build_interface(args:dict)->gr.Blocks:
                     ebook_list = live_list if live_list is not None else (session.get('ebook_list') or [])
                     if not isinstance(ebook_list, list) or row < 0 or row >= len(ebook_list):
                         return gr.update(), gr.update(value=''), gr.update(), gr.update(value='', visible=False)
-                    abs_path = os.path.abspath(ebook_list[row])
-                    session['ebook_selected'] = abs_path
+                    ebook_path = os.path.abspath(ebook_list[row])
+                    session['ebook_selected'] = ebook_path
                     if live_list is not None and session.get('ebook_list') != live_list:
                         session['ebook_list'] = live_list
                     voice_map = session.get('voice_map') or {}
-                    assigned_voice = voice_map[abs_path] if abs_path in voice_map else session.get('voice')
+                    assigned_voice = voice_map[ebook_path] if ebook_path in voice_map else session.get('voice')
                     style = _build_voice_highlight_css(row)
-                    filename = Path(abs_path).name
+                    filename = Path(ebook_path).name
                     return (
                         gr.update(value=assigned_voice, label='Voices'),
                         gr.update(value=style),
@@ -2329,11 +2329,7 @@ def build_interface(args:dict)->gr.Blocks:
                                 "output_split_hours": output_split_hours,
                                 "translate_enabled": bool(translate_enabled),
                                 "translate": translate_target if translate_enabled else None,
-                                "translate_iso1": (Lang(translate_target).pt1 if (translate_enabled and translate_target) else None),
-                                "abs_enabled": bool(session.get("abs_enabled", False)),
-                                "abs_url": session.get("abs_url", ""),
-                                "abs_api_token": session.get("abs_api_token", ""),
-                                "abs_library": session.get("abs_library", "")
+                                "translate_iso1": (Lang(translate_target).pt1 if (translate_enabled and translate_target) else None)
                             }
                             if args['ebook_mode'] == ebook_modes['DIRECTORY']:
                                 if isinstance(args['ebook_list'], list):
@@ -2374,18 +2370,18 @@ def build_interface(args:dict)->gr.Blocks:
                                             queue = list(ebook_list_full)
                                             if args['blocks_preview']:
                                                 selected = session.get('ebook_selected')
-                                                abs_map = {os.path.abspath(p): p for p in ebook_list_full}
-                                                if selected and selected in abs_map:
-                                                    queue = [abs_map[selected]]
+                                                ebook_map = {os.path.abspath(p): p for p in ebook_list_full}
+                                                if selected and selected in ebook_map:
+                                                    queue = [ebook_map[selected]]
                                                 else:
                                                     queue = ebook_list_full[:1]
                                             last_progress_status = None
                                             while queue:
                                                 file = queue.pop(0)
                                                 args['ebook_src'] = file
-                                                abs_file = os.path.abspath(file)
-                                                if abs_file in voice_map:
-                                                    override = voice_map[abs_file]
+                                                ebook_file = os.path.abspath(file)
+                                                if ebook_file in voice_map:
+                                                    override = voice_map[ebook_file]
                                                 elif os.path.basename(file) in voice_map:
                                                     override = voice_map[os.path.basename(file)]
                                                 else:
