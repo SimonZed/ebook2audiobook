@@ -1311,12 +1311,11 @@ def build_interface(args:dict)->gr.Blocks:
                     return gr.update(choices=libs, value=value)
                 return gr.update(choices=[('No libraries found - check URL/API token', '')])
 
-            def _click_gr_abs_upload_btn(session_id:str)->tuple:
+            def _click_gr_abs_upload_btn(session_id:str, audiobook:str)->tuple:
                 try:
                     session = context.get_session(session_id)
                     if not session or not session.get('id', False):
                         return (gr.update(interactive=True), 'Session not found')
-                    audiobook = session.get('audiobook')
                     if not audiobook or not os.path.isfile(str(audiobook)):
                         return (gr.update(interactive=True), 'No audiobook to upload')
                     from lib.classes.audiobookshelf import upload_to_abs
@@ -2976,7 +2975,7 @@ def build_interface(args:dict)->gr.Blocks:
                 gr_custom_model_list, gr_fine_tuned_list, gr_output_format_list, gr_output_channel_list,
                 gr_output_split, gr_output_split_hours, gr_row_output_split_hours, gr_audiobook_list, gr_group_custom_model, gr_convert_btn,
                 gr_voice_player_hidden, gr_voice_play, gr_voice_del_btn, gr_custom_model_file, gr_custom_model_del_btn,
-                gr_abs_server_url, gr_abs_api_token, gr_abs_library_id, gr_abs_upload_btn, gr_abs_status
+                gr_abs_server_url, gr_abs_api_token, gr_abs_library_id, gr_abs_upload_btn, gr_abs_audiobook
             ]
             outputs_refresh_interface = [
                 gr_modal, gr_group_main, gr_tab_xtts_params, gr_tab_bark_params, gr_tab_abs_params, gr_convert_btn,
@@ -3287,7 +3286,7 @@ def build_interface(args:dict)->gr.Blocks:
             gr_audiobook_list.change(
                 fn=_change_gr_audiobook_list,
                 inputs=[gr_session, gr_audiobook_list],
-                outputs=[gr_group_audiobook_list, gr_abs_status],
+                outputs=[gr_group_audiobook_list, gr_abs_audiobook],
                 show_progress_on=[gr_audiobook_list]
             ).then(
                 fn=_update_gr_audiobook_player,
@@ -3610,8 +3609,8 @@ def build_interface(args:dict)->gr.Blocks:
                 queue=False
             ).then(
                 fn=_click_gr_abs_upload_btn,
-                inputs=[gr_session],
-                outputs=[gr_abs_upload_btn, gr_abs_audiobook, gr_abs_status],
+                inputs=[gr_session, gr_abs_audiobook],
+                outputs=[gr_abs_upload_btn, gr_abs_status],
                 show_progress_on=[gr_abs_status]
             )
             ############
