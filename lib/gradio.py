@@ -1302,13 +1302,12 @@ def build_interface(args:dict)->gr.Blocks:
                     return gr.update(interactive=False)
                 libs = fetch_libraries(url, api_token)
                 if libs:
-                    current = session.get('abs_library', '')
+                    current = session.get('abs_library', libs[0][1])
                     selected = current if any(v == current for _, v in libs) else libs[0][1]
-                    if selected != current:
-                        session['abs_library'] = selected
+                    session['abs_library'] = selected
                     session['abs_server_url'] = url
                     session['abs_api_token'] = api_token
-                    return gr.update(choices=libs, value=selected)
+                    return gr.update(choices=libs, value=current)
                 return gr.update(choices=[('No libraries found - check URL/API token', '')])
 
             def _click_gr_abs_upload_btn(session_id:str, audiobook:str)->tuple:
