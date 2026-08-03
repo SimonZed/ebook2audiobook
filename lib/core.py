@@ -4054,25 +4054,31 @@ def finalize_audiobook(session_id:str)->tuple:
         if exported_files is None:
             return _fail('combine_audio_chapters() error: exported_files not created!')
         session['audiobook'] = exported_files[-1]
-        if not session['is_gui_process'] and session.get('abs_url') and session.get('abs_api_token') and session.get('abs_library'):
+        if not session['is_gui_process'] and session['abs_url'] and session['abs_api_token'] and session['abs_library']:
             from lib.classes.audiobookshelf import upload_to_abs
-            a_url = session['abs_url']
-            a_tok = session['abs_api_token']
-            a_lib = session['abs_library']
-            if a_url and a_tok and a_lib:
-                try:
-                    a_title = os.path.basename(session['audiobook'])
-                    a_author = str(session.get('metadata', {}).get('creator') or '')
-                    ok, msg = upload_to_abs([session['audiobook']], a_title, a_author, a_url, a_tok, a_lib)
-                    if ok:
-                        msg = f'ABS auto-upload: {msg}'
-                        print(msg)
+            try:
+                abs_libs = fetch_libraries(session['abs_url'], session['abs_api_token'])
+                if abs_libs:
+                    selected = v if any(name == session['abs_library'] for name, v in abs_libs) else ''
+                    if selected:
+                        a_title = os.path.basename(session['audiobook'])
+                        a_author = str(session.get('metadata', {}).get('creator') or '')
+                        ok, msg = upload_to_abs([session['audiobook']], a_title, a_author, session['abs_url'],  session['abs_api_token'], abs_library_id)
+                        if ok:
+                            msg = f'ABS upload: {msg}'
+                            print(msg)
+                        else:
+                            error = f'ABS upload failed: {msg}'
+                            print(error)
                     else:
-                        error = f'ABS auto-upload failed: {msg}'
+                        error = 'ABS upload failed: library not found.'
                         print(error)
-                except Exception as e:
-                    error = f'ABS auto-upload error: {e}'
+                else:
+                    error = 'ABS upload failed: Could not search libraries.'
                     print(error)
+            except Exception as e:
+                error = f'ABS auto-upload error: {e}'
+                print(error)
         filename = os.path.basename(session['ebook'])
         count_ebook = 0
         if session['ebook_mode'] == ebook_modes['DIRECTORY']:

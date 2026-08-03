@@ -1309,7 +1309,6 @@ def build_interface(args:dict)->gr.Blocks:
                     return gr.update(interactive=False)
                 libs = fetch_libraries(url, api_token)
                 if libs:
-                    print(libs)
                     current = session.get('abs_library', '')
                     selected = current if any(v == current for _, v in libs) else libs[0][1]
                     session['abs_library'] = selected
