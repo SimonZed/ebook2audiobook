@@ -1408,7 +1408,7 @@ def build_interface(args:dict)->gr.Blocks:
                         if session.get('audiobook') != selected:
                             session['audiobook'] = selected
                         visible = session['audiobook'] is not None
-                        abs_file = Path(selected).name if selected else ''
+                        abs_file = selected if selected else ''
                         return gr.update(visible=visible), gr.update(value=abs_file)
                 except Exception as e:
                     error = f'_change_gr_audiobook_list(): {e}'
