@@ -234,7 +234,7 @@ SML tags available:
     headless_optional_group.add_argument(cli_options[33], action='store_true', help='''(Optional) Upload output to Audiobookshelf after processing.''')
     headless_optional_group.add_argument(cli_options[34], type=str, default='', help='''(Optional) Audiobookshelf server URL (e.g. http://localhost:13378).''')
     headless_optional_group.add_argument(cli_options[35], type=str, default='', help='''(Optional) Audiobookshelf API token.''')
-    headless_optional_group.add_argument(cli_options[36], type=str, default='', help='''(Optional) Audiobookshelf library ID.''')
+    headless_optional_group.add_argument(cli_options[36], type=str, default='', help='''(Optional) Audiobookshelf library.''')
     headless_optional_group.add_argument(cli_options[37], action='store_true', help='''(Optional) Auto-upload to Audiobookshelf after processing.''')
 
     for arg in sys.argv:
