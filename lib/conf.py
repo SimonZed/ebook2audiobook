@@ -29,7 +29,7 @@ cli_options = [
     '--speed', '--enable_text_splitting', '--text_temp',
     '--waveform_temp', '--output_dir', 
     '--abs_url', '--abs_api_token', '--abs_library',
-    '--version', '--workflow', '--help', '--docker_device'
+    '--version', '--workflow', '--docker_device', '--help'
 ]
 
 workflow_id = 'ba800d22-ee51-11ef-ac34-d4ae52cfd9ce'

@@ -228,9 +228,8 @@ Default to config.json model.""")
     headless_optional_group.add_argument(cli_options[30], type=str, default='', help='Audiobookshelf API token.')
     headless_optional_group.add_argument(cli_options[31], type=str, default='', help='Audiobookshelf library ID.')
     headless_optional_group.add_argument(cli_options[32], action='version', version=f'ebook2audiobook version {prog_version}', help='Show the version of the script and exit')
-    headless_optional_group.add_argument(cli_options[33], action='store_true', help=argparse.SUPPRESS)
-    headless_optional_group.add_argument(cli_options[34], action='store_true', help=argparse.SUPPRESS)
-    headless_optional_group.add_argument(cli_options[35], action='store_true', help=argparse.SUPPRESS)
+    headless_optional_group.add_argument(cli_options[33], type=str, default=None, help=argparse.SUPPRESS)
+    headless_optional_group.add_argument(cli_options[34], type=str, default=None, help=argparse.SUPPRESS)
 
     for arg in sys.argv:
         if arg.startswith('--') and arg not in cli_options:
