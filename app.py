@@ -179,12 +179,11 @@ SML tags available:
     gui_group = parser.add_argument_group('**** The following option are for gradio/gui mode only', 'Optional')
     gui_group.add_argument(cli_options[3], action='store_true', help='''Enable a public shareable Gradio link.''')
     headless_group = parser.add_argument_group('**** The following cli_options are for --headless mode only')
-    headless_group.add_argument(cli_options[4], action='store_true', help='''Run the script in headless mode''')
-    headless_group.add_argument(cli_options[5], type=str, help='''Path to the ebook file for conversion. Cannot be used when --ebooks_dir or --text is present.''')
-    headless_group.add_argument(cli_options[6], type=str, help=f'''Relative or absolute path of the directory containing the files to convert. Cannot be used when --ebook or --text is present.''')
-    headless_group.add_argument(cli_options[7], type=str, help='''Raw text for conversion. Cannot be used when --ebook or --ebooks_dir is present.''')
-    headless_group.add_argument(cli_options[8], type=str, default=default_language_code, help=f'''Language of the e-book. Default language is set 
-    in ./lib/lang.py sed as default if not present. All compatible language codes are in ./lib/lang.py''')
+    headless_group.add_argument(cli_options[4], action='store_true', help='Run the script in headless mode')
+    headless_group.add_argument(cli_options[5], type=str, help='Path to the ebook file for conversion. Cannot be used when --ebooks_dir or --text is present.')
+    headless_group.add_argument(cli_options[6], type=str, help='Relative or absolute path of the directory containing the files to convert. Cannot be used when --ebook or --text is present.')
+    headless_group.add_argument(cli_options[7], type=str, help='Raw text for conversion. Cannot be used when --ebook or --ebooks_dir is present.')
+    headless_group.add_argument(cli_options[8], type=str, default=default_language_code, help='Language of the e-book. Default language is set in ./lib/lang.py sed as default if not present. All compatible language codes are in ./lib/lang.py')
     headless_optional_group = parser.add_argument_group('optional parameters')
     headless_optional_group.add_argument(cli_options[9], type=str, default=None, metavar='ISO3', help='''Translate ebook to a target language (ISO 639-3 code, e.g. eng, fra, deu) before TTS synthesis.
     Uses argostranslate. The target language becomes the effective TTS language for the run.
