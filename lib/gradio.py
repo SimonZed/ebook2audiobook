@@ -1416,7 +1416,7 @@ def build_interface(args:dict)->gr.Blocks:
                 except Exception as e:
                     error = f'_change_gr_audiobook_list(): {e}'
                     exception_alert(session_id, error)
-                return gr.update(visible=False), gr.update()
+                return gr.update(visible=False), gr.update(value='')
 
             def _update_gr_audiobook_player(session_id:str)->tuple:
                 try:
