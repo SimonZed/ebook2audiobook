@@ -28,9 +28,9 @@ cli_options = [
     '--repetition_penalty', '--top_k', '--top_p', 
     '--speed', '--enable_text_splitting', '--text_temp',
     '--waveform_temp', '--output_dir', '--version', 
-    '--docker_device', '--workflow', '--help',
-    '--abs_enabled', '--abs_url', '--abs_api_token', '--abs_library',
-    '--abs_auto_upload'
+    '--docker_device', 
+    '--abs_url', '--abs_api_token', '--abs_library',
+    '--workflow', '--help'
 ]
 
 workflow_id = 'ba800d22-ee51-11ef-ac34-d4ae52cfd9ce'
@@ -235,9 +235,6 @@ default_output_format = 'm4b'
 default_output_channel = 'mono' # mono or stereo
 default_output_split = False
 default_output_split_hours = '6' # if the final output exceeds output_split_hours * 2 hours, the final file is split by output_split_hours plus any remaining time.
-
-default_abs_enabled = False
-default_abs_url = ''
+default_abs_url = 'http://127.0.0.1:13378'
 default_abs_api_token = ''
 default_abs_library = ''
-default_abs_auto_upload = False
