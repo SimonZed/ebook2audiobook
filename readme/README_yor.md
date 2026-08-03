@@ -485,24 +485,23 @@ git checkout tags/VERSION_NUM # Locally/Compose -> Example: git checkout tags/v2
 - [x] Àyẹ̀wò OCR fún PDF / JPG / BMP / PNG / TIFF
 - [x] Fódà Notebooks [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/5#issuecomment-2408773254)
 - [x] Mú kí pípín ọ̀rọ̀ Ṣáínà má pín àwọn ọ̀rọ̀ kí a sì mú àkókò ìdúró dára síi [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/18#issuecomment-2401154894)
-- [x] Dockerfile
+- [x] Àkọsílẹ Docker
 - [x] Docker compose
-- [x] Podman compose   
+- [x] Podman kọ
 - [x] Notebook Kaggle
 - [x] Notebook Google Colab
 - [x] Ìṣọ̀kan Audiobookshelf
-- [ ] [Ṣe ohun-èlò IOS](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-- [ ] [Ṣe ohun-èlò android](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-
-#### Àwọn Àṣàyàn Àfikún
 - [x] Àṣàyàn Ìtumọ̀ eBook
 - [x] Àwọn àṣàyàn ọ̀nà ìjáde
-- [x] Fódà eBook ìpapọ̀
 - [x] Ìyípadà oníṣíṣẹ́-púpọ̀
 - [x] Ìyípadà fódà eBook ìpapọ̀
 - [x] Ìdánimọ̀ Ẹ̀rọ GPU
-- [x] Yọ ariwo kúrò nínú ohùn ìtọ́kasí èyíkéyìí fún ìgbéga ẹ̀dà ohùn,
-- [x] Ìgbéga àwòṣe àdáni (XTTSv2 nìkan fún ìsinsìnyí. púpọ̀ síi lórí ìbéèrè)
+- [x] Yọ ohùn àtẹ̀yìnwá èyíkéyìí kúrò fún gbígbé ìfipamọ́ ohùn sókè,
+- [x] Aṣa ti o dara tuned awoṣe igbesoke
+- [ ] [Ṣe ohun-èlò IOS](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+- [ ] [Ṣe ohun-èlò android](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+
+#### Àwọn ìbéèrè oníṣe
 - [ ] Ṣàfikún àwòṣe èdè Portuguese Yúróòpù fún ó kéré tán xttsv2, fairseq, vits, piper (a kí ìrànlọ́wọ́ káàbọ̀)
 - [ ] Ṣàfikún àwòṣe èdè Sindhi fún ó kéré tán xttsv2, fairseq, vits, piper (a kí ìrànlọ́wọ́ káàbọ̀)
 

@@ -486,23 +486,22 @@ git checkout tags/VERSION_NUM # Locally/Compose -> Example: git checkout tags/v2
 - [x] Priečinok notebookov [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/5#issuecomment-2408773254)
 - [x] Zabezpečiť, aby delenie čínskeho textu nerozdeľovalo slová, a zlepšiť načasovanie páuz [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/18#issuecomment-2401154894)
 - [x] Dockerfile
-- [x] Docker compose
-- [x] Podman compose   
+- [x] Docker zložiť
+- [x] Podman zložiť
 - [x] Notebook Kaggle
 - [x] Notebook Google Colab
 - [x] Integrácia s Audiobookshelf
-- [ ] [Vytvoriť aplikáciu pre iOS](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-- [ ] [Vytvoriť aplikáciu pre Android](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-
-#### Ďalšie možnosti
 - [x] Možnosť prekladu e-knihy
 - [x] Možnosti výstupného formátu
-- [x] Dávkový priečinok e-kníh
 - [x] Prevod s multiprocessingom
 - [x] Dávkový prevod priečinka e-kníh
 - [x] Detekcia zariadenia GPU
-- [x] Odšumenie ľubovoľného referenčného zvuku pre nahrané klonovanie hlasu,
-- [x] Nahranie vlastného modelu (zatiaľ iba XTTSv2. viac na vyžiadanie)
+- [x] Znížiť šum akéhokoľvek referenčného zvuku na pozadí na nahranie klonovania hlasu,
+- [x] Vlastné doladené nahrávanie modelu
+- [ ] [Vytvoriť aplikáciu pre iOS](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+- [ ] [Vytvoriť aplikáciu pre Android](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+
+#### Žiadosti používateľov
 - [ ] Pridať jazykový model európskej portugalčiny aspoň pre xttsv2, fairseq, vits, piper (pomoc vítaná)
 - [ ] Pridať jazykový model sindhčiny aspoň pre xttsv2, fairseq, vits, piper (pomoc vítaná)
 

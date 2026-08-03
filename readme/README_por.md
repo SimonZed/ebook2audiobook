@@ -475,7 +475,7 @@ git checkout tags/VERSION_NUM # Locally/Compose -> Example: git checkout tags/v2
 - «Estou com um problema de áudio truncado!» - POR FAVOR, ABRA UM ISSUE SOBRE ISTO,
    não falamos todos os idiomas e precisamos do conselho dos utilizadores para afinar a lógica de divisão de frases.😊
 
-## ***** ROADMAP *****
+## Roteiro
 - Todos os recursos abertos a contribuições públicas ⭐
 - Qualquer ajuda de pessoas que falem algum dos idiomas suportados para nos ajudar a melhorar os modelos ⭐
 - [x] Pré-visualizar blocos/capítulos antes de iniciar a conversão
@@ -486,23 +486,22 @@ git checkout tags/VERSION_NUM # Locally/Compose -> Example: git checkout tags/v2
 - [x] Pasta de notebooks [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/5#issuecomment-2408773254)
 - [x] Fazer com que a divisão de texto em chinês não separe palavras e melhorar a sincronização das pausas [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/18#issuecomment-2401154894)
 - [x] Dockerfile
-- [x] Docker compose
-- [x] Podman compose   
+- [x] Composição do Docker
+- [x] Podman compõe
 - [x] Notebook Kaggle
 - [x] Notebook Google Colab
 - [x] Integração com o Audiobookshelf
-- [ ] [Criar uma app para iOS](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-- [ ] [Criar uma app para Android](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-
-#### Opções extra
 - [x] Opção de tradução do e-book
 - [x] Escolhas do formato de saída
-- [x] Pasta de e-books em lote
 - [x] Conversão com multiprocessamento
 - [x] Conversão em lote de uma pasta de e-books
 - [x] Deteção do dispositivo GPU
-- [x] Remover ruído de qualquer áudio de referência para clonagem de voz enviada,
-- [x] Envio de modelo personalizado (apenas XTTSv2 por agora. mais sob pedido)
+- [x] Denoise qualquer áudio de referência de fundo para fazer upload de clonagem de voz,
+- [x] Upload de modelo personalizado ajustado
+- [ ] [Criar uma app para iOS](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+- [ ] [Criar uma app para Android](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+
+#### Solicitações de Usuários
 - [ ] Adicionar um modelo de idioma português europeu para xttsv2, fairseq, vits, piper pelo menos (ajuda bem-vinda)
 - [ ] Adicionar um modelo de idioma sindi para xttsv2, fairseq, vits, piper pelo menos (ajuda bem-vinda)
 

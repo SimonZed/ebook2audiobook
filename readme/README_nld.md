@@ -475,7 +475,7 @@ git checkout tags/VERSION_NUM # Locally/Compose -> Example: git checkout tags/v2
 - "Ik heb een probleem met afgekapte audio!" - MAAK HIER ALSJEBLIEFT EEN ISSUE VAN,
    we spreken niet elke taal en hebben advies van gebruikers nodig om de logica voor het splitsen van zinnen te verfijnen.😊
 
-## ***** ROADMAP *****
+## Wegenkaart
 - Alle functies open voor publieke bijdragen ⭐
 - Alle hulp van mensen die een van de ondersteunde talen spreken om ons te helpen de modellen te verbeteren ⭐
 - [x] Blokken/hoofdstukken bekijken voordat de conversie start
@@ -486,23 +486,22 @@ git checkout tags/VERSION_NUM # Locally/Compose -> Example: git checkout tags/v2
 - [x] Notebooks-map [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/5#issuecomment-2408773254)
 - [x] Ervoor zorgen dat het splitsen van Chinese tekst geen woorden splitst en de timing van pauzes verbeteren [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/18#issuecomment-2401154894)
 - [x] Dockerfile
-- [x] Docker compose
-- [x] Podman compose   
+- [x] Docker opstellen
+- [x] Podman componeren
 - [x] Kaggle-notebook
 - [x] Google Colab-notebook
 - [x] Audiobookshelf-integratie
-- [ ] [Een iOS-app maken](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-- [ ] [Een Android-app maken](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-
-#### Extra opties
 - [x] Optie voor e-bookvertaling
 - [x] Keuzes voor uitvoerformaat
-- [x] Batch e-bookmap
 - [x] Conversie met multiprocessing
 - [x] Batchconversie van een e-bookmap
 - [x] GPU-apparaatdetectie
-- [x] Ruis verwijderen uit elke referentie-audio voor het uploaden van stemklonen,
-- [x] Upload van aangepast model (voorlopig alleen XTTSv2. meer op aanvraag)
+- [x] Denoise elke achtergrondreferentie-audio voor het uploaden van stemklonen,
+- [x] Aangepaste verfijnde modelupload
+- [ ] [Een iOS-app maken](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+- [ ] [Een Android-app maken](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+
+#### Verzoeken van gbruikers
 - [ ] Een Europees-Portugees taalmodel toevoegen voor ten minste xttsv2, fairseq, vits, piper (hulp welkom)
 - [ ] Een Sindhi-taalmodel toevoegen voor ten minste xttsv2, fairseq, vits, piper (hulp welkom)
 

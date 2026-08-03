@@ -486,23 +486,22 @@ git checkout tags/VERSION_NUM # Locally/Compose -> Example: git checkout tags/v2
 - [x] Folda ya Notebooks [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/5#issuecomment-2408773254)
 - [x] Kufanya ugawanyaji wa maandishi ya Kichina usigawanye maneno na kuboresha muda wa mapumziko [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/18#issuecomment-2401154894)
 - [x] Dockerfile
-- [x] Docker compose
-- [x] Podman compose   
+- [x] Mtunzi wa kizingiti
+- [x] Mtunzi wa Podman
 - [x] Daftari la Kaggle
 - [x] Daftari la Google Colab
 - [x] Ujumuishaji wa Audiobookshelf
-- [ ] [Tengeneza programu ya IOS](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-- [ ] [Tengeneza programu ya android](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-
-#### Chaguo za Ziada
 - [x] Chaguo la Tafsiri ya eBook
 - [x] Chaguo za muundo wa matokeo
-- [x] Folda ya eBook ya kundi
 - [x] Ubadilishaji wa uchakataji-nyingi
 - [x] Ubadilishaji wa folda ya eBook ya kundi
 - [x] Utambuzi wa Kifaa cha GPU
-- [x] Ondoa kelele kwenye sauti yoyote ya marejeleo kwa upakiaji wa unakili wa sauti,
-- [x] Upakiaji wa modeli maalum (XTTSv2 pekee kwa sasa. zaidi kwa ombi)
+- [x] Kataa sauti yoyote ya kumbukumbu ya mandharinyuma kwa ajili ya kupakia sauti,
+- [x] Upakiaji wa modeli mahususi
+- [ ] [Tengeneza programu ya IOS](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+- [ ] [Tengeneza programu ya android](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+
+#### Maombi ya Mtumiaji
 - [ ] Ongeza modeli ya lugha ya Kireno cha Ulaya kwa angalau xttsv2, fairseq, vits, piper (msaada unakaribishwa)
 - [ ] Ongeza modeli ya lugha ya Kisindhi kwa angalau xttsv2, fairseq, vits, piper (msaada unakaribishwa)
 

@@ -485,24 +485,23 @@ git checkout tags/VERSION_NUM # Locally/Compose -> Example: git checkout tags/v2
 - [x] OCR-skanning för PDF / JPG / BMP / PNG / TIFF
 - [x] Notebooks-mapp [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/5#issuecomment-2408773254)
 - [x] Få kinesisk textdelning att inte dela ord och förbättra pausernas timing [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/18#issuecomment-2401154894)
-- [x] Dockerfile
-- [x] Docker compose
-- [x] Podman compose   
+- [x] Dockerfil
+- [x] Docker komponera
+- [x] Podman komponera
 - [x] Kaggle-notebook
 - [x] Google Colab-notebook
 - [x] Audiobookshelf-integrering
-- [ ] [Skapa en iOS-app](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-- [ ] [Skapa en Android-app](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-
-#### Extra alternativ
 - [x] Alternativ för e-boksöversättning
 - [x] Val av utdataformat
-- [x] Batch-e-boksmapp
 - [x] Konvertering med multiprocessing
 - [x] Batchkonvertering av en e-boksmapp
 - [x] Detektering av GPU-enhet
-- [x] Brusreducera valfritt referensljud för uppladdad röstkloning,
-- [x] Uppladdning av anpassad modell (endast XTTSv2 för närvarande. mer på begäran)
+- [x] Denoise något bakgrundsreferensljud för uppladdning av röstkloning,
+- [x] Anpassad finjusterad modelluppladdning
+- [ ] [Skapa en iOS-app](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+- [ ] [Skapa en Android-app](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+
+#### Användarförfrågningar
 - [ ] Lägg till en europeisk portugisisk språkmodell för åtminstone xttsv2, fairseq, vits, piper (hjälp välkomnas)
 - [ ] Lägg till en sindhi-språkmodell för åtminstone xttsv2, fairseq, vits, piper (hjälp välkomnas)
 

@@ -486,23 +486,22 @@ git checkout tags/VERSION_NUM # Locally/Compose -> Example: git checkout tags/v2
 - [x] Folder notebooków [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/5#issuecomment-2408773254)
 - [x] Sprawić, by dzielenie tekstu chińskiego nie rozdzielało słów i poprawić synchronizację pauz [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/18#issuecomment-2401154894)
 - [x] Dockerfile
-- [x] Docker compose
-- [x] Podman compose   
+- [x] Docker Compose
+- [x] Podman komponuje
 - [x] Notebook Kaggle
 - [x] Notebook Google Colab
 - [x] Integracja z Audiobookshelf
-- [ ] [Stworzyć aplikację na iOS](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-- [ ] [Stworzyć aplikację na Androida](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-
-#### Dodatkowe opcje
 - [x] Opcja tłumaczenia e-booka
 - [x] Wybór formatu wyjściowego
-- [x] Wsadowy folder e-booków
 - [x] Konwersja wieloprocesowa
 - [x] Wsadowa konwersja folderu e-booków
 - [x] Wykrywanie urządzenia GPU
-- [x] Odszumianie dowolnego referencyjnego audio do przesyłanego klonowania głosu,
-- [x] Przesyłanie własnego modelu (na razie tylko XTTSv2. więcej na życzenie)
+- [x] Usuń szumy z dowolnego dźwięku źródłowego w tle w celu przesłania klonowania głosu,
+- [x] Przesyłanie niestandardowych, dostrojonych modeli
+- [ ] [Stworzyć aplikację na iOS](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+- [ ] [Stworzyć aplikację na Androida](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+
+#### Żądania użytkownika ślimak
 - [ ] Dodać model języka portugalskiego europejskiego przynajmniej dla xttsv2, fairseq, vits, piper (pomoc mile widziana)
 - [ ] Dodać model języka sindhi przynajmniej dla xttsv2, fairseq, vits, piper (pomoc mile widziana)
 

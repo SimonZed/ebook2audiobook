@@ -486,23 +486,22 @@ git checkout tags/VERSION_NUM # Locally/Compose -> Example: git checkout tags/v2
 - [x] Thư mục Notebooks [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/5#issuecomment-2408773254)
 - [x] Làm cho việc chia văn bản tiếng Trung không cắt từ và cải thiện thời gian dừng [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/18#issuecomment-2401154894)
 - [x] Dockerfile
-- [x] Docker compose
-- [x] Podman compose   
+- [x] Soạn nhạc Docker
+- [x] Podman compose
 - [x] Kaggle Notebook
-- [x] Google Colab Notebook
+- [x] Máy tính xách tay Google Colab
 - [x] Tích hợp Audiobookshelf
-- [ ] [Tạo một ứng dụng IOS](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-- [ ] [Tạo một ứng dụng android](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-
-#### Tùy chọn bổ sung
 - [x] Tùy chọn dịch sách điện tử
 - [x] Các lựa chọn định dạng đầu ra
-- [x] Thư mục sách điện tử theo lô
 - [x] Chuyển đổi đa xử lý
 - [x] Chuyển đổi thư mục sách điện tử theo lô
 - [x] Phát hiện thiết bị GPU
-- [x] Khử nhiễu bất kỳ âm thanh tham chiếu nào cho việc tải lên nhân bản giọng nói,
-- [x] Tải lên mô hình tùy chỉnh (hiện chỉ XTTSv2. thêm theo yêu cầu)
+- [x] Làm nhiễu bất kỳ âm thanh tham chiếu nền nào để tải lên nhân bản giọng nói,
+- [x] Tải lên mô hình tinh chỉnh tùy chỉnh
+- [ ] [Tạo một ứng dụng IOS](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+- [ ] [Tạo một ứng dụng android](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+
+#### Yêu cầu người dùng
 - [ ] Thêm mô hình ngôn ngữ tiếng Bồ Đào Nha châu Âu cho ít nhất xttsv2, fairseq, vits, piper (hoan nghênh sự giúp đỡ)
 - [ ] Thêm mô hình ngôn ngữ tiếng Sindhi cho ít nhất xttsv2, fairseq, vits, piper (hoan nghênh sự giúp đỡ)
 

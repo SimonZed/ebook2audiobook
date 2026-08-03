@@ -485,24 +485,23 @@ git checkout tags/VERSION_NUM # Locally/Compose -> Example: git checkout tags/v2
 - [x] OCR-beolvasás PDF / JPG / BMP / PNG / TIFF formátumokhoz
 - [x] Notebookok mappa [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/5#issuecomment-2408773254)
 - [x] A kínai szövegfelosztás úgy alakítása, hogy ne vágjon szét szavakat, és a szünetek időzítésének javítása [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/18#issuecomment-2401154894)
-- [x] Dockerfile
+- [x] Dokkolófájl
 - [x] Docker compose
-- [x] Podman compose   
+- [x] Podman zeneszerző
 - [x] Kaggle notebook
 - [x] Google Colab notebook
 - [x] Audiobookshelf integráció
-- [ ] [iOS alkalmazás készítése](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-- [ ] [Android alkalmazás készítése](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-
-#### További opciók
 - [x] E-könyv fordítási opció
 - [x] Kimeneti formátum választása
-- [x] Kötegelt e-könyv mappa
 - [x] Átalakítás többszálú feldolgozással
 - [x] E-könyv mappa kötegelt átalakítása
 - [x] GPU-eszköz észlelése
-- [x] Bármilyen referencia hang zajszűrése a feltöltött hangklónozáshoz,
-- [x] Egyéni modell feltöltése (egyelőre csak XTTSv2. több kérésre)
+- [x] Hangklónozás feltöltéséhez bármilyen háttérreferencia-hang denoise,
+- [x] Egyedi finomhangolt modell feltöltés
+- [ ] [iOS alkalmazás készítése](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+- [ ] [Android alkalmazás készítése](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+
+#### Felhasználói igények
 - [ ] Európai portugál nyelvi modell hozzáadása legalább xttsv2, fairseq, vits, piper számára (segítség szívesen látott)
 - [ ] Szindhi nyelvi modell hozzáadása legalább xttsv2, fairseq, vits, piper számára (segítség szívesen látott)
 

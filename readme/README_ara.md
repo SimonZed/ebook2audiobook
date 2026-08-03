@@ -486,23 +486,22 @@ git checkout tags/VERSION_NUM # Locally/Compose -> Example: git checkout tags/v2
 - [x] مجلد Notebooks [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/5#issuecomment-2408773254)
 - [x] جعل تقسيم النص الصيني لا يقسم الكلمات وتحسين توقيت الفواصل [Talked about here](https://github.com/DrewThomasson/ebook2audiobookXTTS/issues/18#issuecomment-2401154894)
 - [x] Dockerfile
-- [x] Docker compose
-- [x] Podman compose   
+- [x] تركيب عامل الرصيف
+- [x] تأليف بودمان
 - [x] دفتر Kaggle
 - [x] دفتر Google Colab
 - [x] دمج Audiobookshelf
-- [ ] [إنشاء تطبيق iOS](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-- [ ] [إنشاء تطبيق android](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
-
-#### خيارات إضافية
 - [x] خيار ترجمة الكتاب الإلكتروني
 - [x] خيارات صيغة الإخراج
-- [x] مجلد كتب إلكترونية دفعي
 - [x] تحويل متعدد المعالجة
 - [x] تحويل مجلد كتب إلكترونية دفعي
 - [x] اكتشاف جهاز GPU
-- [x] إزالة الضوضاء من أي صوت مرجعي لرفع استنساخ الصوت،
-- [x] رفع نموذج مخصص (XTTSv2 فقط حاليًا. المزيد عند الطلب)
+- [x] قم بإزالة الضوضاء من أي صوت مرجعي للخلفية لتحميل الاستنساخ الصوتي،
+- [x] تحميل نموذج مضبوط بدقة مخصص
+- [ ] [إنشاء تطبيق iOS](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+- [ ] [إنشاء تطبيق android](https://github.com/DrewThomasson/ebook2audiobook/pull/35#issuecomment-2496495212)
+
+#### طلبات المستخدم
 - [ ] إضافة نموذج لغة البرتغالية الأوروبية على الأقل لـ xttsv2 وfairseq وvits وpiper (المساعدة مرحب بها)
 - [ ] إضافة نموذج لغة السندية على الأقل لـ xttsv2 وfairseq وvits وpiper (المساعدة مرحب بها)
 
