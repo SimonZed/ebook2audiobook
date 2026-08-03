@@ -4055,7 +4055,7 @@ def finalize_audiobook(session_id:str)->tuple:
             return _fail('combine_audio_chapters() error: exported_files not created!')
         session['audiobook'] = exported_files[-1]
         if not session['is_gui_process'] and session['abs_url'] and session['abs_api_token'] and session['abs_library']:
-            from lib.classes.audiobookshelf import upload_to_abs
+            from lib.classes.audiobookshelf import fetch_libraries, upload_to_abs
             try:
                 abs_libs = fetch_libraries(session['abs_url'], session['abs_api_token'])
                 if abs_libs:
