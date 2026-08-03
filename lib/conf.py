@@ -27,9 +27,9 @@ cli_options = [
     '--temperature', '--length_penalty', '--num_beams', 
     '--repetition_penalty', '--top_k', '--top_p', 
     '--speed', '--enable_text_splitting', '--text_temp',
-    '--waveform_temp', '--output_dir', '--docker_device', 
+    '--waveform_temp', '--output_dir', 
     '--abs_url', '--abs_api_token', '--abs_library',
-    '--version', '--workflow', '--help'
+    '--version', '--workflow', '--help', '--docker_device'
 ]
 
 workflow_id = 'ba800d22-ee51-11ef-ac34-d4ae52cfd9ce'
