@@ -338,7 +338,7 @@ optional parameters:
                             Default to config.json model.
   --output_dir OUTPUT_DIR
                         (Optional) Path to the output directory. Default is set in ./lib/conf.py
-						  --abs_url ABS_URL     Audiobookshelf server URL (e.g. http://localhost:13378).
+  --abs_url ABS_URL     Audiobookshelf server URL (e.g. http://localhost:13378).
   --abs_api_token ABS_API_TOKEN
                         Audiobookshelf API token.
   --abs_library ABS_LIBRARY
