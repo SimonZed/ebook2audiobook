@@ -4,9 +4,6 @@ julius
 lameenc
 openunmix
 pyyaml
-torch
-torchaudio
-tqdm
 
 [dev]
 dora-search
@@ -22,8 +19,5 @@ mypy
 openunmix
 pyyaml
 submitit
-torch
-torchaudio
-tqdm
 treetable
 soundfile
