@@ -179,63 +179,58 @@ SML tags available:
     gui_group = parser.add_argument_group('**** The following option are for gradio/gui mode only', 'Optional')
     gui_group.add_argument(cli_options[3], action='store_true', help='''Enable a public shareable Gradio link.''')
     headless_group = parser.add_argument_group('**** The following cli_options are for --headless mode only')
-    headless_group.add_argument(cli_options[4], action='store_true', help='''Run the script in headless mode''')
-    headless_group.add_argument(cli_options[5], type=str, help='''Path to the ebook file for conversion. Cannot be used when --ebooks_dir or --text is present.''')
-    headless_group.add_argument(cli_options[6], type=str, help=f'''Relative or absolute path of the directory containing the files to convert. 
-    Cannot be used when --ebook or --text is present.''')
-    headless_group.add_argument(cli_options[7], type=str, help='''Raw text for conversion. Cannot be used when --ebook or --ebooks_dir is present.''')
-    headless_group.add_argument(cli_options[8], type=str, default=default_language_code, help=f'''Language of the e-book. Default language is set 
-    in ./lib/lang.py sed as default if not present. All compatible language codes are in ./lib/lang.py''')
+    headless_group.add_argument(cli_options[4], action='store_true', help='Run the script in headless mode')
+    headless_group.add_argument(cli_options[5], type=str, help='Path to the ebook file for conversion. Cannot be used when --ebooks_dir or --text is present.')
+    headless_group.add_argument(cli_options[6], type=str, help='Relative or absolute path of the directory containing the files to convert. Cannot be used when --ebook or --text is present.')
+    headless_group.add_argument(cli_options[7], type=str, help='Raw text for conversion. Cannot be used when --ebook or --ebooks_dir is present.')
+    headless_group.add_argument(cli_options[8], type=str, default=default_language_code, help='Language of the e-book. Default language is set in ./lib/lang.py sed as default if not present. All compatible language codes are in ./lib/lang.py')
     headless_optional_group = parser.add_argument_group('optional parameters')
-    headless_optional_group.add_argument(cli_options[9], type=str, default=None, metavar='ISO3', help='''(Optional) Translate ebook to a target language (ISO 639-3 code, e.g. eng, fra, deu) before TTS synthesis.
-    Uses argostranslate. The target language becomes the effective TTS language for the run.
-    A copy of the source ebook is made with the _<iso3> suffix so translated and non-translated
-    outputs stay isolated (independent process folder, audio chunks, and final file).''')
-    headless_optional_group.add_argument(cli_options[10], type=str, default=None, help='''(Optional) Path to the voice cloning file for TTS engine. 
-    Uses the default voice if not present.''')
+    headless_optional_group.add_argument(cli_options[9], type=str, default=None, metavar='ISO3', help='''Translate ebook to a target language (ISO 639-3 code, e.g. eng, fra, deu) before TTS synthesis. 
+Uses argostranslate. The target language becomes the effective TTS language for the run.
+A copy of the source ebook is made with the _<iso3> suffix so translated and non-translated
+outputs stay isolated (independent process folder, audio chunks, and final file).''')
+    headless_optional_group.add_argument(cli_options[10], type=str, default=None, help='Path to the voice cloning file for TTS engine. Uses the default voice if not present.')
     headless_optional_group.add_argument(cli_options[11], type=str, default=None, help='''(Optional, --ebooks_dir only) Path to a JSON file mapping ebook path -> voice path.
-    Each entry overrides --voice for that specific ebook. Missing/null entries fall back to --voice.
-    Keys may be absolute paths or basenames. Example:
-    {"book1.epub": "/voices/eng/adult/female/alice.wav", "/abs/path/book2.epub": null}''')
-    headless_optional_group.add_argument(cli_options[12], type=str, default=default_device, choices=list(devices.keys())+[k.lower() for k in devices.keys()], help=f'''(Optional) Processor unit type for the conversion.
-    Default is set in ./lib/conf.py if not present. Fall back to CPU if CUDA or MPS is not available.''')
-    headless_optional_group.add_argument(cli_options[13], type=str, default=TTS_ENGINES['XTTS'], choices=tts_engine_list_keys+tts_engine_list_values, help=f'''(Optional) Preferred TTS engine (available are: {tts_engine_list_keys+tts_engine_list_values}.
-    Default depends on the selected language. The tts engine should be compatible with the chosen language''')
-    headless_optional_group.add_argument(cli_options[14], type=str, default=None, help=f'''(Optional) Path to the custom model zip file cntaining mandatory model files. 
-    Please refer to ./lib/models.py''')
-    headless_optional_group.add_argument(cli_options[15], type=str, default=default_fine_tuned, help='''(Optional) Fine tuned model path. Default is builtin model.''')
-    headless_optional_group.add_argument(cli_options[16], type=str, default=default_output_format, help=f'''(Optional) Output audio format. Default is {default_output_format} set in ./lib/conf.py''')
-    headless_optional_group.add_argument(cli_options[17], type=str, default=default_output_channel, help=f'''(Optional) Output audio channel. Default is {default_output_channel} set in ./lib/conf.py''')
+Each entry overrides --voice for that specific ebook. Missing/null entries fall back to --voice.
+Keys may be absolute paths or basenames. Example:
+{"book1.epub": "/voices/eng/adult/female/alice.wav", "/abs/path/book2.epub": null}''')
+    headless_optional_group.add_argument(cli_options[12], type=str, default=default_device, choices=list(devices.keys())+[k.lower() for k in devices.keys()], help=f'''Processor unit type for the conversion.
+Default is set in ./lib/conf.py if not present. Fall back to CPU if CUDA or MPS is not available.''')
+    headless_optional_group.add_argument(cli_options[13], type=str, default=TTS_ENGINES['XTTS'], choices=tts_engine_list_keys+tts_engine_list_values, help=f'''Preferred TTS engine (available are: {tts_engine_list_keys+tts_engine_list_values}.
+Default depends on the selected language. The tts engine should be compatible with the chosen language''')
+    headless_optional_group.add_argument(cli_options[14], type=str, default=None, help='Path to the custom model zip file cntaining mandatory model files. Please refer to ./lib/models.py')
+    headless_optional_group.add_argument(cli_options[15], type=str, default=default_fine_tuned, help='Fine tuned model path. Default is builtin model.')
+    headless_optional_group.add_argument(cli_options[16], type=str, default=default_output_format, help=f'Output audio format. Default is {default_output_format} set in ./lib/conf.py')
+    headless_optional_group.add_argument(cli_options[17], type=str, default=default_output_channel, help=f'Output audio channel. Default is {default_output_channel} set in ./lib/conf.py')
     headless_optional_group.add_argument(cli_options[18], type=float, default=default_engine_settings[TTS_ENGINES['XTTS']]['temperature'], help=f"""(xtts only, optional) Temperature for the model. 
-    Default to config.json model. Higher temperatures lead to more creative outputs.""")
+Default to config.json model. Higher temperatures lead to more creative outputs.""")
     headless_optional_group.add_argument(cli_options[19], type=float, default=default_engine_settings[TTS_ENGINES['XTTS']]['length_penalty'], help=f"""(xtts only, optional) A length penalty applied to the autoregressive decoder. 
-    Default to config.json model. Not applied to custom models.""")
+Default to config.json model. Not applied to custom models.""")
     headless_optional_group.add_argument(cli_options[20], type=int, default=default_engine_settings[TTS_ENGINES['XTTS']]['num_beams'], help=f"""(xtts only, optional) Controls how many alternative sequences the model explores. Must be equal or greater than length penalty. 
-    Default to config.json model.""")
+Default to config.json model.""")
     headless_optional_group.add_argument(cli_options[21], type=float, default=default_engine_settings[TTS_ENGINES['XTTS']]['repetition_penalty'], help=f"""(xtts only, optional) A penalty that prevents the autoregressive decoder from repeating itself. 
-    Default to config.json model.""")
+Default to config.json model.""")
     headless_optional_group.add_argument(cli_options[22], type=int, default=default_engine_settings[TTS_ENGINES['XTTS']]['top_k'], help=f"""(xtts only, optional) Top-k sampling. 
-    Lower values mean more likely outputs and increased audio generation speed. 
-    Default to config.json model.""")
+Lower values mean more likely outputs and increased audio generation speed. 
+Default to config.json model.""")
     headless_optional_group.add_argument(cli_options[23], type=float, default=default_engine_settings[TTS_ENGINES['XTTS']]['top_p'], help=f"""(xtts only, optional) Top-p sampling. 
-    Lower values mean more likely outputs and increased audio generation speed. Default to config.json model.""")
+Lower values mean more likely outputs and increased audio generation speed. Default to config.json model.""")
     headless_optional_group.add_argument(cli_options[24], type=float, default=default_engine_settings[TTS_ENGINES['XTTS']]['speed'], help=f"""(xtts only, optional) Speed factor for the speech generation. 
-    Default to config.json model.""")
+Default to config.json model.""")
     headless_optional_group.add_argument(cli_options[25], action='store_true', help=f"""(xtts only, optional) Enable TTS text splitting. This option is known to not be very efficient. 
-    Default to config.json model.""")
+Default to config.json model.""")
     headless_optional_group.add_argument(cli_options[26], type=float, default=default_engine_settings[TTS_ENGINES['BARK']]['text_temp'], help=f"""(bark only, optional) Text Temperature for the model. 
-    Default to config.json model.""")
+Default to config.json model.""")
     headless_optional_group.add_argument(cli_options[27], type=float, default=default_engine_settings[TTS_ENGINES['BARK']]['waveform_temp'], help=f"""(bark only, optional) Waveform Temperature for the model. 
-    Default to config.json model.""")
-    headless_optional_group.add_argument(cli_options[28], type=str, help=f'''(Optional) Path to the output directory. Default is set in ./lib/conf.py''')
-    headless_optional_group.add_argument(cli_options[29], action='version', version=f'ebook2audiobook version {prog_version}', help='''Show the version of the script and exit''')
-    headless_optional_group.add_argument(cli_options[30], action='store_true', help=argparse.SUPPRESS)
-    headless_optional_group.add_argument(cli_options[31], action='store_true', help=argparse.SUPPRESS)
-    headless_optional_group.add_argument(cli_options[33], action='store_true', help='''(Optional) Upload output to Audiobookshelf after processing.''')
-    headless_optional_group.add_argument(cli_options[34], type=str, default='', help='''(Optional) Audiobookshelf server URL (e.g. http://localhost:13378).''')
-    headless_optional_group.add_argument(cli_options[35], type=str, default='', help='''(Optional) Audiobookshelf API token.''')
-    headless_optional_group.add_argument(cli_options[36], type=str, default='', help='''(Optional) Audiobookshelf library ID.''')
-    headless_optional_group.add_argument(cli_options[37], action='store_true', help='''(Optional) Auto-upload to Audiobookshelf after processing.''')
+Default to config.json model.""")
+    headless_optional_group.add_argument(cli_options[28], type=str, help='Path to the output directory. Default is set in ./lib/conf.py')
+    headless_optional_group.add_argument(cli_options[29], type=str, default='', help='Audiobookshelf server URL (e.g. http://localhost:13378).')
+    headless_optional_group.add_argument(cli_options[30], type=str, default='', help='Audiobookshelf API token.')
+    headless_optional_group.add_argument(cli_options[31], type=str, default='', help='Audiobookshelf library ID.')
+    headless_optional_group.add_argument(cli_options[32], action='version', version=f'ebook2audiobook version {prog_version}', help='Show the version of the script and exit')
+    internal_group = parser.add_argument_group(argparse.SUPPRESS)
+    internal_group.add_argument(cli_options[33], type=str, default=None, help=argparse.SUPPRESS)
+    internal_group.add_argument(cli_options[34], type=str, default=None, help=argparse.SUPPRESS)
 
     for arg in sys.argv:
         if arg.startswith('--') and arg not in cli_options:
@@ -411,13 +406,13 @@ SML tags available:
                             all_entries = sorted(os.listdir(args['ebooks_dir']))
                             args['ebook_list'] = []
                             for name in all_entries:
-                                abs_path = os.path.abspath(os.path.join(args['ebooks_dir'], name))
-                                if not os.path.isfile(abs_path):
+                                ebook_dir_path = os.path.abspath(os.path.join(args['ebooks_dir'], name))
+                                if not os.path.isfile(ebook_dir_path):
                                     continue
                                 if not any(name.endswith(ext) for ext in ebook_formats):
                                     print(f'{name} skipped (unsupported format)')
                                     continue
-                                args['ebook_list'].append(abs_path)
+                                args['ebook_list'].append(ebook_dir_path)
                             if not args['ebook_list']:
                                 error = 'Error: No supported ebook files found in --ebooks_dir.'
                             else:

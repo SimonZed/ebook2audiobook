@@ -13,8 +13,6 @@ ebook2audiobook.egg-info/entry_points.txt
 ebook2audiobook.egg-info/requires.txt
 ebook2audiobook.egg-info/top_level.txt
 lib/__init__.py
-lib/check1.py
-lib/check2.py
 lib/conf.py
 lib/conf_lang.py
 lib/conf_models.py
