@@ -4077,7 +4077,7 @@ def finalize_audiobook(session_id:str)->tuple:
                     error = 'ABS upload failed: Could not search libraries.'
                     print(error)
             except Exception as e:
-                error = f'ABS auto-upload error: {e}'
+                error = f'ABS upload error: {e}'
                 print(error)
         filename = os.path.basename(session['ebook'])
         count_ebook = 0

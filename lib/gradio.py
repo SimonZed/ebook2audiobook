@@ -1404,7 +1404,7 @@ def build_interface(args:dict)->gr.Blocks:
                 outputs = tuple([gr.update() for _ in range(14)])
                 return outputs
 
-            def _change_gr_audiobook_list(session_id:str, selected:str|None)->dict:
+            def _change_gr_audiobook_list(session_id:str, selected:str|None)->tuple:
                 try:
                     session = context.get_session(session_id)
                     if session and session.get('id', False):
@@ -3595,6 +3595,10 @@ def build_interface(args:dict)->gr.Blocks:
                 fn=_change_gr_abs_library,
                 inputs=[gr_session, gr_abs_url, gr_abs_api_token, gr_abs_library],
                 outputs=None
+            ).then(
+                fn=_abs_upload_enabled,
+                inputs=[gr_session],
+                outputs=gr_abs_upload_btn
             )
             gr_abs_search_btn.click(
                 fn=_search_abs_libraries,
