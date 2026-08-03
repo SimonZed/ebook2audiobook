@@ -4059,7 +4059,7 @@ def finalize_audiobook(session_id:str)->tuple:
             try:
                 abs_libs = fetch_libraries(session['abs_url'], session['abs_api_token'])
                 if abs_libs:
-                    selected = any(name == session['abs_library'] for name, v in abs_libs)
+                    selected = next((v for name, v in abs_libs if name == session['abs_library']), '')
                     if selected:
                         a_title = os.path.basename(session['audiobook'])
                         a_author = str(session.get('metadata', {}).get('creator') or '')
