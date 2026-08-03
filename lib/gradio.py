@@ -881,7 +881,7 @@ def build_interface(args:dict)->gr.Blocks:
                             )
                     with gr.Tab('Audiobookshelf', elem_id='gr_tab_abs_params', elem_classes='gr-tab', visible=visible_gr_tab_abs_params) as gr_tab_abs_params:
                         with gr.Row(elem_id='gr_row1_abs'):
-                            gr_abs_url = gr.Textbox(label='Server URL', elem_id='gr_abs_url', value=default_abs_server_url, placeholder='http://localhost:13378', lines=1, max_lines=1, interactive=True, scale=2)
+                            gr_abs_url = gr.Textbox(label='Server URL', elem_id='gr_abs_url', value=default_abs_url, placeholder='http://localhost:13378', lines=1, max_lines=1, interactive=True, scale=2)
                             gr_abs_api_token = gr.Textbox(label='API Token', elem_id='gr_abs_api_token', value=default_abs_api_token, type='password', placeholder='eyJ...', lines=1, max_lines=1, interactive=True, scale=1) 
                         with gr.Row(elem_id='gr_row2_abs'):
                             gr_abs_library = gr.Dropdown(label='', elem_id='gr_abs_library', choices=[('Enter URL + API Token to load libraries', '')], value=default_abs_library or None, interactive=True)
@@ -1049,7 +1049,7 @@ def build_interface(args:dict)->gr.Blocks:
                             enabled_upload_btn = bool(
                                 audiobook
                                 and os.path.isfile(str(audiobook))
-                                and session.get('abs_server_url')
+                                and session.get('abs_url')
                                 and session.get('abs_api_token')
                                 and session.get('abs_library')
                             )
@@ -1215,7 +1215,7 @@ def build_interface(args:dict)->gr.Blocks:
                         abs_upload_enabled = (
                             session.get('audiobook') is not None
                             and session.get('status') not in ['converting', 'edit']
-                            and session.get('abs_server_url')
+                            and session.get('abs_url')
                             and session.get('abs_api_token')
                             and session.get('abs_library')
                         )
@@ -1271,9 +1271,9 @@ def build_interface(args:dict)->gr.Blocks:
                             gr.update(visible=visible_voice_buttons),
                             gr.update(label=f"Upload a {session['tts_engine'].upper()} ZIP file (Required: {', '.join(models[default_fine_tuned]['files'])})"),
                             gr.update(visible=visible_custom_model_del_btn),
-                            gr.update(value=session.get('abs_server_url', '')),
+                            gr.update(value=session.get('abs_url', '')),
                             gr.update(value=session.get('abs_api_token', '')),
-                            _search_abs_libraries(session_id, session.get('abs_server_url', ''), session.get('abs_api_token', '')),
+                            _search_abs_libraries(session_id, session.get('abs_url', ''), session.get('abs_api_token', '')),
                             gr.update(interactive=abs_upload_enabled),
                             gr.update(value=''),
                         )
@@ -1297,7 +1297,7 @@ def build_interface(args:dict)->gr.Blocks:
                 session = context.get_session(session_id)
                 if session:
                     session['abs_library'] = library
-                    session['abs_server_url'] = url
+                    session['abs_url'] = url
                     session['abs_api_token'] = api_token
                 
             def _search_abs_libraries(session_id:str, url:str, api_token:str)->gr.update:
@@ -1312,7 +1312,7 @@ def build_interface(args:dict)->gr.Blocks:
                     current = session.get('abs_library', '')
                     selected = current if any(v == current for _, v in libs) else libs[0][1]
                     session['abs_library'] = selected
-                    session['abs_server_url'] = url
+                    session['abs_url'] = url
                     session['abs_api_token'] = api_token
                     return gr.update(choices=libs, value=selected)
                 return gr.update(choices=[('No libraries found - check URL/API token', '')])
@@ -1350,7 +1350,7 @@ def build_interface(args:dict)->gr.Blocks:
                 audiobook = session.get('audiobook')
                 if not audiobook or not os.path.isfile(str(audiobook)):
                     return gr.update(interactive=False)
-                if not (session.get('abs_server_url') and session.get('abs_api_token') and session.get('abs_library')):
+                if not (session.get('abs_url') and session.get('abs_api_token') and session.get('abs_library')):
                     return gr.update(interactive=False)
                 return gr.update(interactive=True)
 
@@ -2331,7 +2331,7 @@ def build_interface(args:dict)->gr.Blocks:
                                 "translate": translate_target if translate_enabled else None,
                                 "translate_iso1": (Lang(translate_target).pt1 if (translate_enabled and translate_target) else None),
                                 "abs_enabled": bool(session.get("abs_enabled", False)),
-                                "abs_server_url": session.get("abs_server_url", ""),
+                                "abs_url": session.get("abs_url", ""),
                                 "abs_api_token": session.get("abs_api_token", ""),
                                 "abs_library": session.get("abs_library", "")
                             }
