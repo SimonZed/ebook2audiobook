@@ -3601,7 +3601,7 @@ def build_interface(args:dict)->gr.Blocks:
             gr_abs_library.change(
                 fn=_change_gr_abs_library,
                 inputs=[gr_session, gr_abs_url, gr_abs_api_token, gr_abs_library],
-                outpus=None
+                outputs=None
             )
             gr_abs_search_btn.click(
                 fn=_search_abs_libraries,
