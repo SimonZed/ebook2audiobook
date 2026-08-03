@@ -468,7 +468,7 @@ def build_interface(args:dict)->gr.Blocks:
                 #gr_audiobook_sentence span[data-testid="block-info"],
                 #gr_audiobook_list span[data-testid="block-info"],
                 #gr_progress span[data-testid="block-info"],
-                #gr_abs_library_id span[data-testid="block-info"] {
+                #gr_abs_library span[data-testid="block-info"] {
                     display: none !important;
                 }
                 #gr_row_ebook_mode { align-items: center !important; }
@@ -884,7 +884,7 @@ def build_interface(args:dict)->gr.Blocks:
                             gr_abs_server_url = gr.Textbox(label='Server URL', elem_id='gr_abs_server_url', value=default_abs_server_url, placeholder='http://localhost:13378', lines=1, max_lines=1, interactive=True, scale=2)
                             gr_abs_api_token = gr.Textbox(label='API Token', elem_id='gr_abs_api_token', value=default_abs_api_token, type='password', placeholder='eyJ...', lines=1, max_lines=1, interactive=True, scale=1) 
                         with gr.Row(elem_id='gr_row2_abs'):
-                            gr_abs_library_id = gr.Dropdown(label='', elem_id='gr_abs_library_id', choices=[('Enter URL + API Token to load libraries', '')], value=default_abs_library_id or None, interactive=True)
+                            gr_abs_library = gr.Dropdown(label='', elem_id='gr_abs_library', choices=[('Enter URL + API Token to load libraries', '')], value=default_abs_library or None, interactive=True)
                             gr_abs_search_btn = gr.Button('🔍', elem_id='gr_abs_search_btn', elem_classes=['gr-abs-search-btn'], variant='', visible=True, interactive=True, scale=0, min_width=60)
                         with gr.Group(elem_id='gr_group_abs_upload_btn', elem_classes=['gr-group-abs-upload-btn']):
                             gr_abs_audiobook = gr.Textbox(elem_id='gr_abs_audiobook', label='Audiobook', lines=1, max_lines=1, interactive=False, visible=True)
@@ -1051,7 +1051,7 @@ def build_interface(args:dict)->gr.Blocks:
                                 and os.path.isfile(str(audiobook))
                                 and session.get('abs_server_url')
                                 and session.get('abs_api_token')
-                                and session.get('abs_library_id')
+                                and session.get('abs_library')
                             )
                             outputs[25] = gr.update(interactive=enabled_upload_btn)
                             visible_custom_model_del_btn = True if session['custom_model'] is not None else False
@@ -1217,7 +1217,7 @@ def build_interface(args:dict)->gr.Blocks:
                             and session.get('status') not in ['converting', 'edit']
                             and session.get('abs_server_url')
                             and session.get('abs_api_token')
-                            and session.get('abs_library_id')
+                            and session.get('abs_library')
                         )
                         visible_xtts = False
                         visible_bark = False
@@ -1302,13 +1302,13 @@ def build_interface(args:dict)->gr.Blocks:
                     return gr.update(interactive=False)
                 libs = fetch_libraries(url, api_token)
                 if libs:
-                    current = session.get('abs_library_id', '')
-                    value = current if any(v == current for _, v in libs) else libs[0][1]
-                    if value != current:
-                        session['abs_library_id'] = value
+                    current = session.get('abs_library', '')
+                    selected = current if any(v == current for _, v in libs) else libs[0][1]
+                    if selected != current:
+                        session['abs_library'] = selected
                     session['abs_server_url'] = url
                     session['abs_api_token'] = api_token
-                    return gr.update(choices=libs, value=value)
+                    return gr.update(choices=libs, value=selected)
                 return gr.update(choices=[('No libraries found - check URL/API token', '')])
 
             def _click_gr_abs_upload_btn(session_id:str, audiobook:str)->tuple:
@@ -1324,7 +1324,7 @@ def build_interface(args:dict)->gr.Blocks:
                     author = str(session.get('metadata', {}).get('creator') or '')
                     server_url = str(session.get('abs_server_url') or '')
                     api_token = str(session.get('abs_api_token') or '')
-                    library_id = str(session.get('abs_library_id') or '')
+                    library_id = str(session.get('abs_library') or '')
                     if not server_url or not api_token or not library_id:
                         return (gr.update(interactive=True), 'Configure ABS settings first')
                     parsed = urlparse(server_url)
@@ -1347,7 +1347,7 @@ def build_interface(args:dict)->gr.Blocks:
                 audiobook = session.get('audiobook')
                 if not audiobook or not os.path.isfile(str(audiobook)):
                     return gr.update(interactive=False)
-                if not (session.get('abs_server_url') and session.get('abs_api_token') and session.get('abs_library_id')):
+                if not (session.get('abs_server_url') and session.get('abs_api_token') and session.get('abs_library')):
                     return gr.update(interactive=False)
                 return gr.update(interactive=True)
 
@@ -2330,7 +2330,7 @@ def build_interface(args:dict)->gr.Blocks:
                                 "abs_enabled": bool(session.get("abs_enabled", False)),
                                 "abs_server_url": session.get("abs_server_url", ""),
                                 "abs_api_token": session.get("abs_api_token", ""),
-                                "abs_library_id": session.get("abs_library_id", "")
+                                "abs_library": session.get("abs_library", "")
                             }
                             if args['ebook_mode'] == ebook_modes['DIRECTORY']:
                                 if isinstance(args['ebook_list'], list):
@@ -2975,7 +2975,7 @@ def build_interface(args:dict)->gr.Blocks:
                 gr_custom_model_list, gr_fine_tuned_list, gr_output_format_list, gr_output_channel_list,
                 gr_output_split, gr_output_split_hours, gr_row_output_split_hours, gr_audiobook_list, gr_group_custom_model, gr_convert_btn,
                 gr_voice_player_hidden, gr_voice_play, gr_voice_del_btn, gr_custom_model_file, gr_custom_model_del_btn,
-                gr_abs_server_url, gr_abs_api_token, gr_abs_library_id, gr_abs_upload_btn, gr_abs_audiobook
+                gr_abs_server_url, gr_abs_api_token, gr_abs_library, gr_abs_upload_btn, gr_abs_audiobook
             ]
             outputs_refresh_interface = [
                 gr_modal, gr_group_main, gr_tab_xtts_params, gr_tab_bark_params, gr_tab_abs_params, gr_convert_btn,
@@ -3595,7 +3595,7 @@ def build_interface(args:dict)->gr.Blocks:
             gr_abs_search_btn.click(
                 fn=_search_abs_libraries,
                 inputs=[gr_session, gr_abs_server_url, gr_abs_api_token], 
-                outputs=gr_abs_library_id
+                outputs=gr_abs_library
             ).then(
                 fn=_abs_upload_enabled,
                 inputs=[gr_session],
