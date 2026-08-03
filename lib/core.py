@@ -197,7 +197,7 @@ class SessionContext:
             "abs_enabled": default_abs_enabled,
             "abs_server_url": default_abs_server_url,
             "abs_api_token": default_abs_api_token,
-            "abs_library_id": default_abs_library_id,
+            "abs_library_id": default_abs_library,
             "abs_auto_upload": default_abs_auto_upload,
             ####### Xtts settings
             "xtts_temperature": default_engine_settings[TTS_ENGINES['XTTS']]['temperature'],
