@@ -881,7 +881,7 @@ def build_interface(args:dict)->gr.Blocks:
                             )
                     with gr.Tab('Audiobookshelf', elem_id='gr_tab_abs_params', elem_classes='gr-tab', visible=visible_gr_tab_abs_params) as gr_tab_abs_params:
                         with gr.Row(elem_id='gr_row1_abs'):
-                            gr_abs_server_url = gr.Textbox(label='Server URL', elem_id='gr_abs_server_url', value=default_abs_server_url, placeholder='http://localhost:13378', lines=1, max_lines=1, interactive=True, scale=2)
+                            gr_abs_url = gr.Textbox(label='Server URL', elem_id='gr_abs_url', value=default_abs_server_url, placeholder='http://localhost:13378', lines=1, max_lines=1, interactive=True, scale=2)
                             gr_abs_api_token = gr.Textbox(label='API Token', elem_id='gr_abs_api_token', value=default_abs_api_token, type='password', placeholder='eyJ...', lines=1, max_lines=1, interactive=True, scale=1) 
                         with gr.Row(elem_id='gr_row2_abs'):
                             gr_abs_library = gr.Dropdown(label='', elem_id='gr_abs_library', choices=[('Enter URL + API Token to load libraries', '')], value=default_abs_library or None, interactive=True)
@@ -1293,6 +1293,13 @@ def build_interface(args:dict)->gr.Blocks:
                     outputs = tuple([gr.update() for _ in range(3)])
                     return outputs
 
+            def _change_gr_abs_library(session:str, url:str, api_token:str, library:str)->None:
+                session = context.get_session(session_id)
+                if session:
+                    session['abs_library'] = library
+                    session['abs_server_url'] = url
+                    session['abs_api_token'] = api_token
+                
             def _search_abs_libraries(session_id:str, url:str, api_token:str)->gr.update:
                 from lib.classes.audiobookshelf import fetch_libraries
                 if not url or not api_token:
@@ -1307,7 +1314,7 @@ def build_interface(args:dict)->gr.Blocks:
                     session['abs_library'] = selected
                     session['abs_server_url'] = url
                     session['abs_api_token'] = api_token
-                    return gr.update(choices=libs, value=current)
+                    return gr.update(choices=libs, value=selected)
                 return gr.update(choices=[('No libraries found - check URL/API token', '')])
 
             def _click_gr_abs_upload_btn(session_id:str, audiobook:str)->tuple:
@@ -2974,7 +2981,7 @@ def build_interface(args:dict)->gr.Blocks:
                 gr_custom_model_list, gr_fine_tuned_list, gr_output_format_list, gr_output_channel_list,
                 gr_output_split, gr_output_split_hours, gr_row_output_split_hours, gr_audiobook_list, gr_group_custom_model, gr_convert_btn,
                 gr_voice_player_hidden, gr_voice_play, gr_voice_del_btn, gr_custom_model_file, gr_custom_model_del_btn,
-                gr_abs_server_url, gr_abs_api_token, gr_abs_library, gr_abs_upload_btn, gr_abs_audiobook
+                gr_abs_url, gr_abs_api_token, gr_abs_library, gr_abs_upload_btn, gr_abs_audiobook
             ]
             outputs_refresh_interface = [
                 gr_modal, gr_group_main, gr_tab_xtts_params, gr_tab_bark_params, gr_tab_abs_params, gr_convert_btn,
@@ -3591,9 +3598,14 @@ def build_interface(args:dict)->gr.Blocks:
                 outputs=[gr_modal, gr_custom_model_list, gr_audiobook_list, gr_voice_list],
                 show_progress_on=[gr_progress]
             )
+            gr_abs_library.change(
+                fn=_change_gr_abs_library,
+                inputs=[gr_session, gr_abs_url, gr_abs_api_token, gr_abs_library],
+                outpus=None
+            )
             gr_abs_search_btn.click(
                 fn=_search_abs_libraries,
-                inputs=[gr_session, gr_abs_server_url, gr_abs_api_token], 
+                inputs=[gr_session, gr_abs_url, gr_abs_api_token], 
                 outputs=gr_abs_library
             ).then(
                 fn=_abs_upload_enabled,
