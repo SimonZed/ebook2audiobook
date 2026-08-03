@@ -887,6 +887,7 @@ def build_interface(args:dict)->gr.Blocks:
                             gr_abs_library_id = gr.Dropdown(label='', elem_id='gr_abs_library_id', choices=[('Enter URL + API Token to load libraries', '')], value=default_abs_library_id or None, interactive=True)
                             gr_abs_search_btn = gr.Button('🔍', elem_id='gr_abs_search_btn', elem_classes=['gr-abs-search-btn'], variant='', visible=True, interactive=True, scale=0, min_width=60)
                         with gr.Group(elem_id='gr_group_abs_upload_btn', elem_classes=['gr-group-abs-upload-btn']):
+                            gr_abs_audiobook = gr.Textbox(elem_id='gr_abs_audiobook', label='Audiobook', lines=1, max_lines=1, interactive=False, visible=True)
                             gr_abs_status = gr.Textbox(elem_id='gr_abs_status', label='Status', lines=1, max_lines=1, interactive=False, visible=True)
                             gr_abs_upload_btn = gr.Button(elem_id='gr_abs_upload_btn', value='🡅', elem_classes=['gr-abs-upload-btn'], variant='secondary', interactive=False)
 
@@ -1310,19 +1311,6 @@ def build_interface(args:dict)->gr.Blocks:
                     return gr.update(choices=libs, value=value)
                 return gr.update(choices=[('No libraries found - check URL/API token', '')])
 
-            def _abs_upload_enabled(session_id:str)->gr.update:
-                session = context.get_session(session_id)
-                if not session or not session.get('id', False):
-                    return gr.update(interactive=False)
-                if session.get('status') == status_tags['SWITCH']:
-                    return gr.update(interactive=False)
-                audiobook = session.get('audiobook')
-                if not audiobook or not os.path.isfile(str(audiobook)):
-                    return gr.update(interactive=False)
-                if not (session.get('abs_server_url') and session.get('abs_api_token') and session.get('abs_library_id')):
-                    return gr.update(interactive=False)
-                return gr.update(interactive=True)
-
             def _click_gr_abs_upload_btn(session_id:str)->tuple:
                 try:
                     session = context.get_session(session_id)
@@ -1350,6 +1338,19 @@ def build_interface(args:dict)->gr.Blocks:
                         return (gr.update(interactive=True), f'Error: {msg}')
                 except Exception as e:
                     return (gr.update(interactive=True), f'Error: {e}')
+
+            def _abs_upload_enabled(session_id:str)->gr.update:
+                session = context.get_session(session_id)
+                if not session or not session.get('id', False):
+                    return gr.update(interactive=False)
+                if session.get('status') == status_tags['SWITCH']:
+                    return gr.update(interactive=False)
+                audiobook = session.get('audiobook')
+                if not audiobook or not os.path.isfile(str(audiobook)):
+                    return gr.update(interactive=False)
+                if not (session.get('abs_server_url') and session.get('abs_api_token') and session.get('abs_library_id')):
+                    return gr.update(interactive=False)
+                return gr.update(interactive=True)
 
             def _refresh_interface(session_id:str)->tuple:
                 try:
@@ -3610,7 +3611,7 @@ def build_interface(args:dict)->gr.Blocks:
             ).then(
                 fn=_click_gr_abs_upload_btn,
                 inputs=[gr_session],
-                outputs=[gr_abs_upload_btn, gr_abs_status],
+                outputs=[gr_abs_upload_btn, gr_abs_audiobook, gr_abs_status],
                 show_progress_on=[gr_abs_status]
             )
             ############
