@@ -17,9 +17,6 @@ Requires-Dist: julius
 Requires-Dist: lameenc
 Requires-Dist: openunmix
 Requires-Dist: pyyaml
-Requires-Dist: torch
-Requires-Dist: torchaudio
-Requires-Dist: tqdm
 Provides-Extra: dev
 Requires-Dist: dora-search; extra == "dev"
 Requires-Dist: diffq; extra == "dev"
@@ -34,9 +31,6 @@ Requires-Dist: mypy; extra == "dev"
 Requires-Dist: openunmix; extra == "dev"
 Requires-Dist: pyyaml; extra == "dev"
 Requires-Dist: submitit; extra == "dev"
-Requires-Dist: torch; extra == "dev"
-Requires-Dist: torchaudio; extra == "dev"
-Requires-Dist: tqdm; extra == "dev"
 Requires-Dist: treetable; extra == "dev"
 Requires-Dist: soundfile; extra == "dev"
 Dynamic: author

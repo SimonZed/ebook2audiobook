@@ -194,11 +194,9 @@ class SessionContext:
             "output_channel": default_output_channel,
             "output_split": default_output_split,
             "output_split_hours": default_output_split_hours,
-            "abs_enabled": default_abs_enabled,
-            "abs_server_url": default_abs_server_url,
+            "abs_url": default_abs_url,
             "abs_api_token": default_abs_api_token,
-            "abs_library_id": default_abs_library_id,
-            "abs_auto_upload": default_abs_auto_upload,
+            "abs_library": default_abs_library,
             ####### Xtts settings
             "xtts_temperature": default_engine_settings[TTS_ENGINES['XTTS']]['temperature'],
             #"xtts_codec_temperature": default_engine_settings[TTS_ENGINES['XTTS']]['codec_temperature'],
@@ -3686,11 +3684,6 @@ def convert_ebook(args:dict)->tuple:
             session['output_channel'] = str(args['output_channel'])
             session['output_split'] = bool(args['output_split'])
             session['output_split_hours'] = args['output_split_hours']if args['output_split_hours'] is not None else default_output_split_hours
-            session['abs_enabled'] = bool(args.get('abs_enabled', False))
-            session['abs_server_url'] = str(args.get('abs_server_url', ''))
-            session['abs_api_token'] = str(args.get('abs_api_token', ''))
-            session['abs_library_id'] = str(args.get('abs_library_id', ''))
-            session['abs_auto_upload'] = bool(args.get('abs_auto_upload', False))
             session['model_cache'] = f"{session['tts_engine']}-{session['fine_tuned']}"
             session['session_dir'] = os.path.join(tmp_dir, f'proc-{session_id}')
             session['status'] = status_tags['EDIT'] if session['blocks_preview'] else status_tags['CONVERTING'] 
@@ -3706,6 +3699,9 @@ def convert_ebook(args:dict)->tuple:
                 session['audiobooks_dir'] = os.path.abspath(args['output_dir']) if args.get('output_dir') is not None else os.path.join(audiobooks_cli_dir, f'cli-{session_id}')
                 session['final_name'] = os.path.join(session['audiobooks_dir'], ebook_name + lang_prfx + '.' + session['output_format'])
                 session['voice_dir'] = os.path.join(voices_dir, '__sessions', f'voice-{session_id}', final_language)
+                session['abs_url'] = str(args.get('abs_url', ''))
+                session['abs_api_token'] = str(args.get('abs_api_token', ''))
+                session['abs_library'] = str(args.get('abs_library', ''))
                 os.makedirs(session['voice_dir'], exist_ok=True)
                 audio_pre_final_exist = os.path.exists(os.path.join(session['process_dir'], ebook_name + '.' + default_audio_proc_format))
                 audio_sentences_exist = any(Path(session['sentences_dir']).rglob(f'*.{default_audio_proc_format}'))
@@ -4058,25 +4054,31 @@ def finalize_audiobook(session_id:str)->tuple:
         if exported_files is None:
             return _fail('combine_audio_chapters() error: exported_files not created!')
         session['audiobook'] = exported_files[-1]
-        if not session['is_gui_process'] and session.get('abs_enabled') and session.get('abs_auto_upload'):
-            from lib.classes.audiobookshelf import upload_to_abs
-            a_url = str(session.get('abs_server_url') or '')
-            a_tok = str(session.get('abs_api_token') or '')
-            a_lib = str(session.get('abs_library_id') or '')
-            if a_url and a_tok and a_lib:
-                try:
-                    a_title = os.path.basename(session['audiobook'])
-                    a_author = str(session.get('metadata', {}).get('creator') or '')
-                    ok, msg = upload_to_abs([session['audiobook']], a_title, a_author, a_url, a_tok, a_lib)
-                    if ok:
-                        msg = f'ABS auto-upload: {msg}'
-                        print(msg)
+        if not session['is_gui_process'] and session['abs_url'] and session['abs_api_token'] and session['abs_library']:
+            from lib.classes.audiobookshelf import fetch_libraries, upload_to_abs
+            try:
+                abs_libs = fetch_libraries(session['abs_url'], session['abs_api_token'])
+                if abs_libs:
+                    abs_library_id = next((v for name, v in abs_libs if name == session['abs_library']), '')
+                    if abs_library_id:
+                        a_title = os.path.basename(session['audiobook'])
+                        a_author = str(session.get('metadata', {}).get('creator') or '')
+                        ok, msg = upload_to_abs([session['audiobook']], a_title, a_author, session['abs_url'],  session['abs_api_token'], abs_library_id)
+                        if ok:
+                            msg = f'ABS upload: {msg}'
+                            print(msg)
+                        else:
+                            error = f'ABS upload failed: {msg}'
+                            print(error)
                     else:
-                        error = f'ABS auto-upload failed: {msg}'
+                        error = 'ABS upload failed: library not found.'
                         print(error)
-                except Exception as e:
-                    error = f'ABS auto-upload error: {e}'
+                else:
+                    error = 'ABS upload failed: Could not search libraries.'
                     print(error)
+            except Exception as e:
+                error = f'ABS auto-upload error: {e}'
+                print(error)
         filename = os.path.basename(session['ebook'])
         count_ebook = 0
         if session['ebook_mode'] == ebook_modes['DIRECTORY']:
