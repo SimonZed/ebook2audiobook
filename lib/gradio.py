@@ -1317,7 +1317,7 @@ def build_interface(args:dict)->gr.Blocks:
                     return gr.update(choices=libs, value=selected)
                 return gr.update(choices=[('No libraries found - check URL/API token', '')])
 
-            def _click_gr_abs_upload_btn(session_id:str, audiobook:str)->tuple:
+            def _click_gr_abs_upload_btn(session_id:str, audiobook:str, url:str, api_token:str, library_id:str)->tuple:
                 try:
                     session = context.get_session(session_id)
                     if not session or not session.get('id', False):
@@ -1328,15 +1328,12 @@ def build_interface(args:dict)->gr.Blocks:
                     from urllib.parse import urlparse
                     title = Path(audiobook).stem
                     author = str(session.get('metadata', {}).get('creator') or '')
-                    server_url = str(session.get('abs_server_url') or '')
-                    api_token = str(session.get('abs_api_token') or '')
-                    library_id = str(session.get('abs_library') or '')
-                    if not server_url or not api_token or not library_id:
+                    if not url or not api_token or not library_id:
                         return (gr.update(interactive=True), 'Configure ABS settings first')
-                    parsed = urlparse(server_url)
+                    parsed = urlparse(url)
                     if not parsed.scheme or not parsed.netloc:
                         return (gr.update(interactive=True), 'Invalid server URL')
-                    ok, msg = upload_to_abs([audiobook], title, author, server_url, api_token, library_id)
+                    ok, msg = upload_to_abs([audiobook], title, author, url, api_token, library_id)
                     if ok:
                         return (gr.update(interactive=True), f'{msg}')
                     else:
@@ -3620,7 +3617,7 @@ def build_interface(args:dict)->gr.Blocks:
                 queue=False
             ).then(
                 fn=_click_gr_abs_upload_btn,
-                inputs=[gr_session, gr_abs_audiobook],
+                inputs=[gr_session, gr_abs_audiobook, gr_abs_url, gr_abs_api_token, gr_abs_library],
                 outputs=[gr_abs_upload_btn, gr_abs_status],
                 show_progress_on=[gr_abs_status]
             )
