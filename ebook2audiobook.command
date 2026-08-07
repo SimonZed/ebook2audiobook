@@ -921,13 +921,13 @@ function build_docker_image {
 			--no-cache \
 			-t "$DOCKER_IMG_NAME" \
 			-f Dockerfile \
-			--build-args PYTHON_VERSION="$py_vers" \
-			--build-args APP_VERSION="$APP_VERSION" \
-			--build-args DEVICE_TAG="$DEVICE_TAG" \
-			--build-args DOCKER_DEVICE_STR="$ARG" \
-			--build-args DOCKER_PROGRAMS_STR="${DOCKER_PROGRAMS[*]}" \
-			--build-args CALIBRE_INSTALLER_URL="$CALIBRE_INSTALLER_URL" \
-			--build-args ISO3_LANG="$ISO3_LANG" \
+			--build-arg PYTHON_VERSION="$py_vers" \
+			--build-arg APP_VERSION="$APP_VERSION" \
+			--build-arg DEVICE_TAG="$DEVICE_TAG" \
+			--build-arg DOCKER_DEVICE_STR="$ARG" \
+			--build-arg DOCKER_PROGRAMS_STR="${DOCKER_PROGRAMS[*]}" \
+			--build-arg CALIBRE_INSTALLER_URL="$CALIBRE_INSTALLER_URL" \
+			--build-arg ISO3_LANG="$ISO3_LANG" \
 			|| return 1
 		echo "Docker image ready! to run your docker: "
 		echo "Podman Compose:"
