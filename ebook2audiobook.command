@@ -915,15 +915,19 @@ function build_docker_image {
 	fi
 	if [[ "$DOCKER_MODE" == "podman" ]]; then
 		echo "--> Using podman-compose"
-		# Build the args string (handle array specially)
-		DOCKER_PROGRAMS_STR=$(printf "%s " "${DOCKER_PROGRAMS[@]}" | sed 's/ $//')
-		BUILD_ARGS="PYTHON_VERSION=$py_vers APP_VERSION=$APP_VERSION DEVICE_TAG=$DEVICE_TAG DOCKER_DEVICE_STR=$ARG DOCKER_PROGRAMS_STR=\"$DOCKER_PROGRAMS_STR\" CALIBRE_INSTALLER_URL=$CALIBRE_INSTALLER_URL ISO3_LANG=$ISO3_LANG"
-		BUILD_NAME="$DOCKER_IMG_NAME" podman-compose \
-			-f podman-compose.yml \
-			--profile $COMPOSE_PROFILES \
-			--podman-build-args "$BUILD_ARGS" \
+		podman \
 			build \
+			--network=host \
 			--no-cache \
+			-t "$DOCKER_IMG_NAME" \
+			-f Dockerfile \
+			--build-args PYTHON_VERSION="$py_vers" \
+			--build-args APP_VERSION="$APP_VERSION" \
+			--build-args DEVICE_TAG="$DEVICE_TAG" \
+			--build-args DOCKER_DEVICE_STR="$ARG" \
+			--build-args DOCKER_PROGRAMS_STR="${DOCKER_PROGRAMS[*]}" \
+			--build-args CALIBRE_INSTALLER_URL="$CALIBRE_INSTALLER_URL" \
+			--build-args ISO3_LANG="$ISO3_LANG" \
 			|| return 1
 		echo "Docker image ready! to run your docker: "
 		echo "Podman Compose:"
