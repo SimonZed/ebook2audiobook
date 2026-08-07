@@ -917,6 +917,7 @@ function build_docker_image {
 		echo "--> Using podman-compose"
 		BUILD_NAME="$DOCKER_IMG_NAME" podman-compose \
 			-f podman-compose.yml \
+			--profile $COMPOSE_PROFILES \
 			--podman-build-args PYTHON_VERSION="$py_vers" \
 			--podman-build-args APP_VERSION="$APP_VERSION" \
 			--podman-build-args DEVICE_TAG="$DEVICE_TAG" \
@@ -924,11 +925,8 @@ function build_docker_image {
 			--podman-build-args DOCKER_PROGRAMS_STR="${DOCKER_PROGRAMS[*]}" \
 			--podman-build-args CALIBRE_INSTALLER_URL="$CALIBRE_INSTALLER_URL" \
 			--podman-build-args ISO3_LANG="$ISO3_LANG" \
-			--profile $COMPOSE_PROFILES \
 			build \
-			--format docker \
 			--no-cache \
-			--network=host \
 			|| return 1
 		echo "Docker image ready! to run your docker: "
 		echo "Podman Compose:"
