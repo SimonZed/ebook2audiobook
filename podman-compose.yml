@@ -17,22 +17,6 @@
 x-common: &common
   image: localhost/athomasson2/ebook2audiobook:${DEVICE_TAG:-cpu}
   platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
-  build:
-    context: .
-    dockerfile: Dockerfile
-    args:
-      APP_VERSION: ${APP_VERSION:-26.8.7}
-      DEVICE_TAG: ${DEVICE_TAG:-cpu}
-      # PYTHON_VERSION and DOCKER_DEVICE_STR are the device-critical args: without them
-      # the Dockerfile falls back to its cu130 / python3.12 defaults. Build via
-      # ebook2audiobook.command so these are exported into the environment.
-      PYTHON_VERSION: ${PYTHON_VERSION:-3.12}
-      DOCKER_DEVICE_STR: ${DOCKER_DEVICE_STR:-}
-      DOCKER_PROGRAMS_STR: ${DOCKER_PROGRAMS_STR:-curl ffmpeg mediainfo nodejs npm espeak-ng sox tesseract-ocr}
-      CALIBRE_INSTALLER_URL: ${CALIBRE_INSTALLER_URL:-https://download.calibre-ebook.com/linux-installer.sh}
-      ISO3_LANG: ${ISO3_LANG:-eng}
-      INSTALL_RUST: ${INSTALL_RUST:-1}
-      BUILDAH_FORMAT: docker
   working_dir: /app
   entrypoint: ["bash", "ebook2audiobook.command", "--script_mode", "full_docker"]
   tty: true
