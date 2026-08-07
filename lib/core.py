@@ -6,7 +6,7 @@
 # WHICH IS LESS GENERIC FOR THE DEVELOPERS
 
 import argparse, asyncio, csv, difflib, fnmatch, sqlite3, hashlib, io, json, math, os, pytesseract, gc
-import random, shutil, subprocess, sys, tempfile, threading, time, uvicorn, copy
+import random, shutil, subprocess, sys, tempfile, threading, time, uvicorn, copy, base64
 import traceback, socket, unicodedata, urllib.request, uuid, zipfile, fitz, multiprocessing
 import ebooklib, psutil, requests, stanza, importlib, queue, pykakasi
 import regex as re, gradio as gr
@@ -3165,29 +3165,77 @@ def combine_audio_chapters(session_id:str)->list[str]|None:
                 error = f'{Path(final_file).name} is corrupted or does not exist'
                 print(error)
                 return False
-            if session['output_format'] in ['mp3', 'm4a', 'm4b', 'mp4'] and session['cover'] is not None:
+            if session['cover'] is not None:
                 cover_path = session['cover']
                 msg = f'Adding cover {cover_path} into the final audiobook file…'
                 print(msg)
-                audio = None
-                if session['output_format'] == 'mp3':
-                    from mutagen.mp3 import MP3
-                    from mutagen.id3 import ID3, APIC, error as id3_error
-                    audio = MP3(final_file, ID3=ID3)
-                    try:
-                        audio.add_tags()
-                    except id3_error:
-                        pass
-                    with open(cover_path, 'rb') as img:
-                        audio.tags.add(APIC(encoding=3, mime='image/jpeg', type=3, desc='Cover', data=img.read()))
-                elif session['output_format'] in ['mp4', 'm4a', 'm4b']:
-                    from mutagen.mp4 import MP4, MP4Cover
-                    audio = MP4(final_file)
+                if session['output_format'] == 'webm':
+                    msg = 'Cover embedding skipped: mutagen has no Matroska/WebM writer'
+                    print(msg)
+                else:
                     with open(cover_path, 'rb') as f:
                         cover_data = f.read()
-                    audio['covr'] = [MP4Cover(cover_data, imageformat=MP4Cover.FORMAT_JPEG)]
-                if audio is not None:
-                    audio.save()
+                    mime = 'image/png' if Path(cover_path).suffix.lower() == '.png' else 'image/jpeg'
+                    width, height, depth = 0, 0, 24
+                    try:
+                        from PIL import Image
+                        with Image.open(cover_path) as img:
+                            width, height = img.size
+                            depth = len(img.getbands()) * 8
+                    except Exception:
+                        pass
+                    audio = None
+                    if session['output_format'] == 'mp3':
+                        from mutagen.mp3 import MP3
+                        from mutagen.id3 import ID3, APIC, error as id3_error
+                        audio = MP3(final_file, ID3=ID3)
+                        try:
+                            audio.add_tags()
+                        except id3_error:
+                            pass
+                        audio.tags.delall('APIC')
+                        audio.tags.add(APIC(encoding=3, mime=mime, type=3, desc='Cover', data=cover_data))
+                    elif session['output_format'] in ['mp4', 'm4a', 'm4b', 'mov']:
+                        from mutagen.mp4 import MP4, MP4Cover
+                        img_fmt = MP4Cover.FORMAT_PNG if mime == 'image/png' else MP4Cover.FORMAT_JPEG
+                        audio = MP4(final_file)
+                        audio['covr'] = [MP4Cover(cover_data, imageformat=img_fmt)]
+                    elif session['output_format'] in ['flac', 'ogg']:
+                        from mutagen.flac import Picture
+                        pic = Picture()
+                        pic.type = 3
+                        pic.mime = mime
+                        pic.desc = 'Cover'
+                        pic.width, pic.height, pic.depth = width, height, depth
+                        pic.data = cover_data
+                        if session['output_format'] == 'flac':
+                            from mutagen.flac import FLAC
+                            audio = FLAC(final_file)
+                            audio.clear_pictures()
+                            audio.add_picture(pic)
+                        else:
+                            from mutagen.oggopus import OggOpus
+                            audio = OggOpus(final_file)
+                            audio['metadata_block_picture'] = [base64.b64encode(pic.write()).decode('ascii')]
+                    elif session['output_format'] == 'wav':
+                        from mutagen.wave import WAVE
+                        from mutagen.id3 import APIC
+                        audio = WAVE(final_file)
+                        if audio.tags is None:
+                            audio.add_tags()
+                        audio.tags.delall('APIC')
+                        audio.tags.add(APIC(encoding=3, mime=mime, type=3, desc='Cover', data=cover_data))
+                    elif session['output_format'] == 'aac':
+                        from mutagen.id3 import ID3, APIC, ID3v1SaveOptions, ID3NoHeaderError
+                        try:
+                            tags = ID3(final_file)
+                        except ID3NoHeaderError:
+                            tags = ID3()
+                        tags.delall('APIC')
+                        tags.add(APIC(encoding=3, mime=mime, type=3, desc='Cover', data=cover_data))
+                        tags.save(final_file, v1=ID3v1SaveOptions.REMOVE, v2_version=3)
+                    if audio is not None:
+                        audio.save()
             final_vtt = os.path.join(session['audiobooks_dir'], f'{Path(final_file).stem}.vtt')
             vtt_built, error = build_vtt_file(session, vtt_path=final_vtt, block_indices=block_indices)
             if not vtt_built:
