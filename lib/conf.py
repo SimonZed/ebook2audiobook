@@ -226,7 +226,7 @@ voice_formats = [
     ".aiff", ".aif", ".wma", ".dsd", ".opus", ".pcmu", ".pcma", ".gsm"
 ]
 output_formats = [
-    "aac", "flac", "mp3", "m4b", "m4a", "mp4", "mov", "ogg", "wav", "webm"
+    "aac", "flac", "mp3", "m4b", "m4a", "ogg", "mp4", "mov", "wav", "webm"
 ]
 default_audio_proc_samplerate = 24000
 default_audio_proc_format = 'flac' # or 'ogg', 'wav' (wav format is ok but limited to process files < 4GB)
