@@ -877,31 +877,6 @@ function build_docker_image {
 	export DOCKER_DEVICE_STR="$ARG"
 	export DOCKER_PROGRAMS_STR="${DOCKER_PROGRAMS[*]}"
 	export CALIBRE_INSTALLER_URL ISO3_LANG
-	# --format docker is a podman build flag, not a Dockerfile ARG: buildah only reads it
-	# from the environment.
-	export BUILDAH_FORMAT="docker"
-	# The image is built where the ENGINE runs: natively on Linux, inside the podman/docker
-	# VM on a Mac. uname -m describes the client and answers x86_64 under Rosetta, so ask the
-	# engine and keep uname as the offline fallback only. Both engines already answer in the
-	# OCI/Go vocabulary (amd64, arm64), which uname does not.
-	local host_arch=""
-	if [[ "$DOCKER_MODE" == "podman" ]]; then
-		host_arch="$(podman info --format '{{.Host.Arch}}' 2>/dev/null || true)"
-	else
-		host_arch="$(docker version --format '{{.Server.Arch}}' 2>/dev/null || true)"
-	fi
-	if [[ -z "$host_arch" ]]; then
-		case "$ARCH" in
-			x86_64|amd64)	host_arch="amd64" ;;
-			aarch64|arm64)	host_arch="arm64" ;;
-			armv7l|armv7)	host_arch="arm/v7" ;;
-			*)		host_arch="$ARCH" ;;
-		esac
-	fi
-	# podman resolves a bare FROM against whichever platform of the base image was pulled
-	# last, and only fills TARGETARCH / TARGETPLATFORM when --platform is given, so the arch
-	# is passed explicitly on every path below instead of left to the engine default.
-	export DOCKER_PLATFORM="linux/$host_arch"
 	case "$DEVICE_TAG" in
 		cpu)		cmd_options="";;
 		cu*)		cmd_options="--gpus all" ;;
@@ -910,7 +885,7 @@ function build_docker_image {
 		xpu)		cmd_options="--device=/dev/dri" ;;
 	esac
 	ISO3_LANG="$(get_iso3_lang "${OS_LANG:-en}")"
-	local DOCKER_IMG_NAME="${DOCKER_IMG_NAME}:${DEVICE_TAG}"
+	DOCKER_IMG_NAME="${DOCKER_IMG_NAME}:${DEVICE_TAG}"
 	case "$DEVICE_TAG" in
 		cpu|mps)	COMPOSE_PROFILES=cpu ;;
 		cu*)		COMPOSE_PROFILES=cuda ;;
@@ -921,22 +896,6 @@ function build_docker_image {
 	esac
 	export COMPOSE_PROFILES
 	SERVICE="ebook2audiobook-${COMPOSE_PROFILES}"
-	# DEVICE_TAG carries no arch of its own, so an arch-locked tag on the wrong host builds
-	# cleanly and yields an image whose wheels cannot load. Fail here instead.
-	case "$DEVICE_TAG" in
-		jetson*)
-			if [[ "$DOCKER_PLATFORM" != "linux/arm64" ]]; then
-				echo "Error: DEVICE_TAG=$DEVICE_TAG is arm64 only, build host is $DOCKER_PLATFORM"
-				return 1
-			fi
-			;;
-		rocm*|xpu)
-			if [[ "$DOCKER_PLATFORM" != "linux/amd64" ]]; then
-				echo "Error: DEVICE_TAG=$DEVICE_TAG is amd64 only, build host is $DOCKER_PLATFORM"
-				return 1
-			fi
-			;;
-	esac
 	if [[ "$DOCKER_MODE" == "podman" ]]; then
 		if ! command -v podman-compose &>/dev/null || ! podman-compose -f podman-compose.yml config &>/dev/null; then
 			echo "ERROR: podman-compose is not installed or podman-compose.yml is not valid"
@@ -950,16 +909,21 @@ function build_docker_image {
 	fi
 	if [[ "$DOCKER_MODE" == "podman" ]]; then
 		echo "--> Using podman-compose"
-		# Flag placement is not free-form: --format and --network are not podman-compose
-		# options at all, --no-cache belongs after the build subcommand, and the value of
-		# --podman-build-args must use the = form because it starts with a dash (argparse
-		# otherwise reads it as the next option). --build-arg flags are dropped: build.args
-		# in the yml already carries them.
-		# --platform lives here and NOT as a build.platform key in podman-compose.yml --
-		# podman errors out when --platform is given twice.
-		podman-compose -f podman-compose.yml \
-			--podman-build-args="--platform $DOCKER_PLATFORM --network=host" \
-			--profile "$COMPOSE_PROFILES" build --no-cache || return 1
+		BUILD_NAME="$DOCKER_IMG_NAME" podman-compose \
+			--format docker \
+			--no-cache \
+			--network=host \
+			-f podman-compose.yml \
+			--podman-build-args PYTHON_VERSION="$py_vers" \
+			--podman-build-args APP_VERSION="$APP_VERSION" \
+			--podman-build-args DEVICE_TAG="$DEVICE_TAG" \
+			--podman-build-args DOCKER_DEVICE_STR="$ARG" \
+			--podman-build-args DOCKER_PROGRAMS_STR="${DOCKER_PROGRAMS[*]}" \
+			--podman-build-args CALIBRE_INSTALLER_URL="$CALIBRE_INSTALLER_URL" \
+			--podman-build-args ISO3_LANG="$ISO3_LANG" \
+			--profile $COMPOSE_PROFILES \
+			build \
+			|| return 1
 		echo "Docker image ready! to run your docker: "
 		echo "Podman Compose:"
 		echo "	GUI mode:"
@@ -968,10 +932,7 @@ function build_docker_image {
 		echo "  DEVICE_TAG=$DEVICE_TAG podman-compose -f podman-compose.yml --profile $COMPOSE_PROFILES run --rm -v \"/mnt/c/Users/myname/whatever/custom_voice:/app/custom_voice\" $SERVICE --headless --ebook \"/app/ebooks/tests/test_eng.txt\" --tts_engine yourtts --language eng --voice \"/app/Desktop/myvoice.wav\" [etc.]"
 	elif [[ "$DOCKER_MODE" == "compose" ]]; then
 		echo "--> Using docker compose"
-		# docker compose build has no --platform flag; docker reads this instead. A platform:
-		# key in docker-compose.yml would take precedence over it.
-		export DOCKER_DEFAULT_PLATFORM="$DOCKER_PLATFORM"
-		docker compose \
+		BUILD_NAME="$DOCKER_IMG_NAME" docker compose \
 			-f docker-compose.yml \
 			--progress plain \
 			build \
@@ -996,7 +957,6 @@ function build_docker_image {
 		# docker buildx build \
 		echo "--> Using docker build"
 		docker build \
-			--platform "$DOCKER_PLATFORM" \
 			--no-cache \
 			--progress plain \
 			--build-arg PYTHON_VERSION="$py_vers" \
@@ -1013,7 +973,7 @@ function build_docker_image {
 		echo "	GUI mode:"
 		echo "	docker run -v \"./ebooks:/app/ebooks\" -v \"./audiobooks:/app/audiobooks\" -v \"./models:/app/models\" -v \"./voices:/app/voices\" -v \"./tmp:/app/tmp\" ${cmd_options}--rm -it -p 7860:7860 $DOCKER_IMG_NAME"
 		echo "	Headless mode:"
-		echo "	docker run -v \"./ebooks:/app/ebooks\" -v \"./audiobooks:/app/audiobooks\" -v \"./models:/app/models\" -v \"./voices:/app/voices\" -v \"./tmp:/app/tmp\" -v \"/my/real/ebooks/folder/absolute/path:/app/custom_ebooks\" -v \"/my/real/output/folder/absolute/path:/app/audiobooks\" ${cmd_options}--rm -it -p 7860:7860 $DOCKER_IMG_NAME --headless --ebook /app/custom_ebooks/myfile.pdf [--voice /app/my/voicepath/voice.mp3 etc..]"
+		echo "	docker run -v \"./ebooks:/app/ebooks\" -v \"./audiobooks:/app/audiobooks\" -v \"./models:/app/models\" -v \"./voices:/app/voices\" -v \"./tmp:/app/tmp\" -v \"/my/real/ebooks/folder/absolute/path:/app/custom_ebooks\" -v \"/my/real/output/folder/absolute/path:/app/audiobooks\" ${cmd_options}--rm -it -p 7860:7860 $DOCKER_IMG_NAME --headless --ebook /app/custom_ebooks/myfile.pdf [--voice /app/my/voicepath/voice.mp3 etc..]"		
 	fi
 }
 
@@ -1036,9 +996,9 @@ else
                 DEVICE_TAG=$(json_get "tag")
 			fi
 			if [[ "$PODMAN_DESKTOP" == "1" ]]; then
-				if podman image exists "localhost/${DOCKER_IMG_NAME}:${DEVICE_TAG}" >/dev/null 2>&1; then
+				if podman image exists "localhost/%DOCKER_IMG_NAME%:!DEVICE_TAG!" >/dev/null 2>&1; then
 					echo "[STOP] Podman image '${DOCKER_IMG_NAME}:${DEVICE_TAG}' already exists. Aborting build."
-					echo "Delete it using: podman rmi -f localhost/${DOCKER_IMG_NAME}:${DEVICE_TAG}"
+					echo "Delete it using: podman rmi -f localhost/%DOCKER_IMG_NAME%:!DEVICE_TAG!"
 					exit 1
 				fi
 			elif [[ "$DOCKER_DESKTOP" == "1" ]]; then

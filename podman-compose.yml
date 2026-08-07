@@ -9,26 +9,13 @@
 #
 # Architecture (amd64 vs arm64) is NOT a profile. It is decided by the host you
 # run on plus the matching DEVICE_TAG image — the device entries below are
-# arch-agnostic at the compose layer, and there is deliberately no platform: key
-# here. ebook2audiobook.command owns the arch: build_docker_image() asks the
-# engine for it (podman info / docker version — on a Mac the build happens in the
-# VM, so uname -m is the wrong source) and passes it as
-#
-#   --podman-build-args="--platform linux/<arch> --network=host"
-#
-# Adding a build.platform key below would make podman see --platform twice, which
-# is an error. A build launched by hand instead of through the script gets the
-# engine default, which is the host arch.
-#
-# TAG_SUFFIX exists for the one case the tag cannot express: cross-building both
-# arches on the same host (needs qemu-user-static + binfmt), where :cu130 would
-# otherwise be overwritten.
+# arch-agnostic at the compose layer.
 #
 # Always confirm a profile expands correctly before running it:
 #   DEVICE_TAG=rocm podman-compose --profile rocm config
 
 x-common: &common
-  image: localhost/athomasson2/ebook2audiobook:${DEVICE_TAG:-cpu}${TAG_SUFFIX:-}
+  image: localhost/athomasson2/ebook2audiobook:${DEVICE_TAG:-cpu}
   build:
     context: .
     dockerfile: Dockerfile
@@ -44,9 +31,6 @@ x-common: &common
       CALIBRE_INSTALLER_URL: ${CALIBRE_INSTALLER_URL:-https://download.calibre-ebook.com/linux-installer.sh}
       ISO3_LANG: ${ISO3_LANG:-eng}
       INSTALL_RUST: ${INSTALL_RUST:-1}
-      # Inert as a build arg unless the Dockerfile declares ARG BUILDAH_FORMAT —
-      # ebook2audiobook.command exports BUILDAH_FORMAT=docker, which is what buildah
-      # actually reads. Kept here only so the two stay visible together.
       BUILDAH_FORMAT: docker
   working_dir: /app
   entrypoint: ["bash", "ebook2audiobook.command", "--script_mode", "full_docker"]
@@ -66,7 +50,6 @@ x-common: &common
 
 services:
   # --- CPU: no device wiring at all -----------------------------------------
-  # The only entry that is genuinely both arches; DOCKER_PLATFORM decides.
   ebook2audiobook-cpu:
     <<: *common
     profiles: [cpu]
@@ -84,9 +67,6 @@ services:
   # Requires mode = "csv" in /etc/nvidia-container-runtime/config.toml and the
   # nvidia runtime registered. On recent JetPack with a generated CDI spec you
   # can use --profile cuda instead of this profile.
-  #
-  # arm64 only — the jetson* torch wheels have no amd64 build. Enforced in
-  # build_docker_image(), which refuses the tag on a non-arm64 host.
   ebook2audiobook-jetson:
     <<: *common
     profiles: [jetson]
@@ -98,7 +78,6 @@ services:
       - video
 
   # --- AMD ROCm -------------------------------------------------------------
-  # amd64 only in practice — also enforced in build_docker_image().
   ebook2audiobook-rocm:
     <<: *common
     profiles: [rocm]
@@ -110,7 +89,6 @@ services:
       - render
 
   # --- Intel XPU (oneAPI / IPEX) --------------------------------------------
-  # amd64 only — also enforced in build_docker_image().
   ebook2audiobook-xpu:
     <<: *common
     profiles: [xpu]
