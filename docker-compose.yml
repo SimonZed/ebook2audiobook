@@ -20,6 +20,7 @@ services:
   # --- shared base: exists only for extends, never runs (dummy _base profile)
   ebook2audiobook-base:
     image: athomasson2/ebook2audiobook:${DEVICE_TAG:-cpu}
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     build:
       context: .
       dockerfile: Dockerfile

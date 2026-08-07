@@ -16,6 +16,7 @@
 
 x-common: &common
   image: localhost/athomasson2/ebook2audiobook:${DEVICE_TAG:-cpu}
+  platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
   build:
     context: .
     dockerfile: Dockerfile

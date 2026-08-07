@@ -20,6 +20,13 @@ else
 	script_path="$0"
 fi
 
+case "$(uname -m)" in
+  x86_64|amd64)  ARCH="amd64" ;;
+  aarch64|arm64) ARCH="arm64" ;;
+  *)             ARCH="$(uname -m)" ;;
+esac
+export ARCH
+export DOCKER_DEFAULT_PLATFORM="linux/${ARCH}"
 export BASHRCSOURCED="1"
 export SCRIPT_DIR="$(cd "$(dirname "$script_path")" >/dev/null 2>&1 && pwd -P)"
 export PYTHONUTF8="1"
@@ -43,7 +50,6 @@ export SUDO="sudo"
 NATIVE="native"
 BUILD_DOCKER="build_docker"
 FULL_DOCKER="full_docker"
-ARCH=$(uname -m)
 MIN_PYTHON_VERSION="3.10"
 MAX_PYTHON_VERSION="3.12"
 PYTHON_VERSION="$MAX_PYTHON_VERSION"
@@ -910,10 +916,10 @@ function build_docker_image {
 	if [[ "$DOCKER_MODE" == "podman" ]]; then
 		echo "--> Using podman-compose"
 		BUILD_NAME="$DOCKER_IMG_NAME" podman-compose \
+			-f podman-compose.yml \
 			--format docker \
 			--no-cache \
 			--network=host \
-			-f podman-compose.yml \
 			--podman-build-args PYTHON_VERSION="$py_vers" \
 			--podman-build-args APP_VERSION="$APP_VERSION" \
 			--podman-build-args DEVICE_TAG="$DEVICE_TAG" \
