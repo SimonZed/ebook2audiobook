@@ -903,9 +903,13 @@ function build_docker_image {
 	export COMPOSE_PROFILES
 	SERVICE="ebook2audiobook-${COMPOSE_PROFILES}"
 	if [[ "$DOCKER_MODE" == "podman" ]]; then
-		if ! command -v podman-compose &>/dev/null || ! podman-compose -f podman-compose.yml config &>/dev/null; then
-			echo "ERROR: podman-compose is not installed or podman-compose.yml is not valid"
+		if ! command -v podman &>/dev/null; then
+			echo "ERROR: podman is not installed"
 			return 1
+		fi
+		# podman-compose is only needed to RUN the image, not to build it
+		if ! command -v podman-compose &>/dev/null || ! podman-compose -f podman-compose.yml config &>/dev/null; then
+			echo "WARNING: podman-compose is missing or podman-compose.yml is not valid -- the image will still build, but you will not be able to run it with podman-compose"
 		fi
 	elif [[ "$DOCKER_MODE" == "compose" ]]; then
 		if ! docker compose config --services 2>/dev/null | grep -q .; then
@@ -914,7 +918,7 @@ function build_docker_image {
 		fi
 	fi
 	if [[ "$DOCKER_MODE" == "podman" ]]; then
-		echo "--> Using podman-compose"
+		echo "--> Using podman build"
 		podman \
 			build \
 			--network=host \
@@ -928,7 +932,7 @@ function build_docker_image {
 			--build-arg DOCKER_PROGRAMS_STR="${DOCKER_PROGRAMS[*]}" \
 			--build-arg CALIBRE_INSTALLER_URL="$CALIBRE_INSTALLER_URL" \
 			--build-arg ISO3_LANG="$ISO3_LANG" \
-			|| return 1
+			. || return 1
 		echo "Docker image ready! to run your docker: "
 		echo "Podman Compose:"
 		echo "	GUI mode:"
@@ -1001,9 +1005,9 @@ else
                 DEVICE_TAG=$(json_get "tag")
 			fi
 			if [[ "$PODMAN_DESKTOP" == "1" ]]; then
-				if podman image exists "localhost/%DOCKER_IMG_NAME%:!DEVICE_TAG!" >/dev/null 2>&1; then
-					echo "[STOP] Podman image '${DOCKER_IMG_NAME}:${DEVICE_TAG}' already exists. Aborting build."
-					echo "Delete it using: podman rmi -f localhost/%DOCKER_IMG_NAME%:!DEVICE_TAG!"
+				if podman image exists "localhost/${DOCKER_IMG_NAME}:${DEVICE_TAG}" >/dev/null 2>&1; then
+					echo "[STOP] Podman image 'localhost/${DOCKER_IMG_NAME}:${DEVICE_TAG}' already exists. Aborting build."
+					echo "Delete it using: podman rmi -f localhost/${DOCKER_IMG_NAME}:${DEVICE_TAG}"
 					exit 1
 				fi
 			elif [[ "$DOCKER_DESKTOP" == "1" ]]; then
