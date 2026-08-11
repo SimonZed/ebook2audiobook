@@ -407,7 +407,7 @@ class DeviceInstaller():
             if self.system == systems['MACOS']:
                 return False
             if os.name == 'posix':
-                if not os.path.exists('/dev/dri/renderD128'):
+                if not glob('/dev/dri/renderD*'):
                     return False
                 if has_cmd('sycl-ls'):
                     out = try_cmd('sycl-ls').lower()
@@ -923,7 +923,7 @@ class DeviceInstaller():
                     pass
 
                 # 2) sycl-ls detection
-                if not version:
+                if xpu_device_count == 0:
                     if os.name == 'posix' and has_cmd('sycl-ls'):
                         out = try_cmd('sycl-ls')
                         if out:
@@ -987,7 +987,10 @@ class DeviceInstaller():
                         if cmp == 1:
                             msg = f'XPU oneAPI {version} but tested max {max_ver} so using torch default xpu build'
                 elif xpu_device_count > 0:
-                    msg = 'Intel GPU detected but oneAPI toolkit version file not found.'
+                    devices['XPU']['found'] = True
+                    name = devices['XPU']['proc']
+                    tag = devices['XPU']['proc']
+                    msg = 'Intel GPU detected via Level Zero/SYCL. oneAPI toolkit version file not found so using torch default xpu build.'
                 else:
                     msg = 'Intel GPU detected but oneAPI Base Toolkit not installed.'
 

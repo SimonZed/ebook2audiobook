@@ -43,6 +43,8 @@ export PATH="$CONDA_BIN_PATH:${PATH-}"
 export PODMAN_DESKTOP="0"
 export DOCKER_DESKTOP="0"
 export DOCKER_DEVICE_STR=""
+export RENDER_GID="${RENDER_GID:-}"
+export VIDEO_GID="${VIDEO_GID:-}"
 export DEVICE_INFO_STR=""
 export HOMEBREW_NO_ENV_HINTS="1"
 export SUDO="sudo"
@@ -863,6 +865,42 @@ function check_sitecustomized {
 	return 0
 }
 
+function get_dri_gids {
+	local node
+	RENDER_GID=""
+	VIDEO_GID=""
+	if [[ "${OSTYPE-}" == linux* ]]; then
+		for node in /dev/dri/renderD*; do
+			if [[ ! -c "$node" ]]; then
+				continue
+			fi
+			RENDER_GID="$(stat -c '%g' "$node" 2>/dev/null || true)"
+			if [[ -n "$RENDER_GID" ]]; then
+				break
+			fi
+		done
+		for node in /dev/dri/card*; do
+			if [[ ! -c "$node" ]]; then
+				continue
+			fi
+			VIDEO_GID="$(stat -c '%g' "$node" 2>/dev/null || true)"
+			if [[ -n "$VIDEO_GID" ]]; then
+				break
+			fi
+		done
+	fi
+	export RENDER_GID VIDEO_GID
+	{
+		if [[ -n "$RENDER_GID" ]]; then
+			printf 'RENDER_GID=%s\n' "$RENDER_GID"
+		fi
+		if [[ -n "$VIDEO_GID" ]]; then
+			printf 'VIDEO_GID=%s\n' "$VIDEO_GID"
+		fi
+	} > "$SCRIPT_DIR/.env"
+	return 0
+}
+
 function build_docker_image {
 	local ARG="$1"
 	if [[ "$ARG" == "" ]]; then
@@ -901,6 +939,7 @@ function build_docker_image {
 		*)		COMPOSE_PROFILES=cpu ;;
 	esac
 	export COMPOSE_PROFILES
+	get_dri_gids
 	SERVICE="ebook2audiobook-${COMPOSE_PROFILES}"
 	if [[ "$DOCKER_MODE" == "podman" ]]; then
 		if ! command -v podman &>/dev/null; then
@@ -943,7 +982,6 @@ function build_docker_image {
 		echo "--> Using docker compose"
 		BUILD_NAME="$DOCKER_IMG_NAME" docker compose \
 			-f docker-compose.yml \
-			--progress plain \
 			build \
 			--no-cache \
 			--build-arg PYTHON_VERSION="$py_vers" \

@@ -106,8 +106,6 @@ services:
     environment:
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: all
-    group_add:
-      - video
 
   # --- AMD ROCm -------------------------------------------------------------
   ebook2audiobook-rocm:
@@ -117,8 +115,8 @@ services:
       - /dev/kfd
       - /dev/dri
     group_add:
-      - video
-      - render
+      - "${VIDEO_GID:-44}"
+      - "${RENDER_GID:-44}"
 
   # --- Intel XPU (oneAPI / IPEX) --------------------------------------------
   ebook2audiobook-xpu:
@@ -127,4 +125,4 @@ services:
     devices:
       - /dev/dri
     group_add:
-      - render
+      - "${RENDER_GID:-44}"

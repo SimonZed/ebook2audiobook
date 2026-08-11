@@ -117,7 +117,7 @@ services:
       - /dev/dri
     group_add:
       - video
-      - render
+      - "${RENDER_GID:-44}"
 
   # --- Intel XPU (oneAPI / IPEX) --------------------------------------------
   ebook2audiobook-xpu:
@@ -127,4 +127,4 @@ services:
     devices:
       - /dev/dri
     group_add:
-      - render
+      - "${RENDER_GID:-44}"
