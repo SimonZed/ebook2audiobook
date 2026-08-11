@@ -777,8 +777,10 @@ function check_conda {
             conda clean --packages --tarballs -y
         fi
         conda create --prefix "$SCRIPT_DIR/$PYTHON_ENV" -c conda-forge python=$PYTHON_VERSION pip -y || return 1
+		set +u
         conda activate "$SCRIPT_DIR/$PYTHON_ENV" || return 1
-        if [[ "${OSTYPE-}" != darwin* && "$model" == *jetson* ]]; then
+        set -u
+		if [[ "${OSTYPE-}" != darwin* && "$model" == *jetson* ]]; then
             # gfortran needed to compile scipy from pip on Jetson
             conda install -c conda-forge gfortran -y || return 1
         fi
@@ -1099,7 +1101,9 @@ EOF
 		check_required_programs "${HOST_PROGRAMS[@]}" || install_programs || exit 1
 		check_conda || { echo -e "\e[31m=============== check_conda() failed.\e[0m"; exit 1; }
 		source "$CONDA_ENV" || exit 1
+		set +u
 		conda activate "$SCRIPT_DIR/$PYTHON_ENV" || { echo -e "\e[31m=============== conda activate failed.\e[0m"; exit 1; }
+		set -u
 		check_sitecustomized || exit 1
 		check_desktop_app || exit 1
 		python3 -u "$SCRIPT_DIR/app.py" --script_mode "$SCRIPT_MODE" "${ARGS[@]}" || exit 1
