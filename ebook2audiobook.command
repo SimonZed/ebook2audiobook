@@ -1025,7 +1025,7 @@ function build_docker_image {
 		echo "	GUI mode:"
 		echo "	docker run -v \"./ebooks:/app/ebooks\" -v \"./audiobooks:/app/audiobooks\" -v \"./models:/app/models\" -v \"./voices:/app/voices\" -v \"./tmp:/app/tmp\" ${cmd_options} --rm -it -p 7860:7860 $DOCKER_IMG_NAME"
 		echo "	Headless mode:"
-		echo "	docker run -v \"./ebooks:/app/ebooks\" -v \"./audiobooks:/app/audiobooks\" -v \"./models:/app/models\" -v \"./voices:/app/voices\" -v \"./tmp:/app/tmp\" -v \"/my/real/ebooks/folder/absolute/path:/app/custom_ebooks\" -v \"/my/real/output/folder/absolute/path:/app/audiobooks\" ${cmd_options}--rm -it -p 7860:7860 $DOCKER_IMG_NAME --headless --ebook /app/custom_ebooks/myfile.pdf [--voice /app/my/voicepath/voice.mp3 etc..]"		
+		echo "	docker run -v \"./ebooks:/app/ebooks\" -v \"./audiobooks:/app/audiobooks\" -v \"./models:/app/models\" -v \"./voices:/app/voices\" -v \"./tmp:/app/tmp\" -v \"/my/real/ebooks/folder/absolute/path:/app/custom_ebooks\" -v \"/my/real/output/folder/absolute/path:/app/audiobooks\" ${cmd_options} --rm -it -p 7860:7860 $DOCKER_IMG_NAME --headless --ebook /app/custom_ebooks/myfile.pdf [--voice /app/my/voicepath/voice.mp3 etc..]"		
 	fi
 }
 
