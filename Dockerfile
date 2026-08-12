@@ -34,14 +34,14 @@ WORKDIR /app
 # System packages (build + runtime)
 RUN set -eux; \
 	apt-get update; \
-	apt-get install -y --no-install-recommends --allow-change-held-packages \
+	apt-get install -y --no-install-recommends \
 		gcc g++ make pkg-config cmake curl wget git bash xz-utils python3-dev \
 		fontconfig libfontconfig1 libfreetype6 libgl1 libegl1 libopengl0 \
 		libx11-6 libxext6 libxrender1 libxcb1 libxcb-render0 libxcb-shm0 \
-		libxcb-xfixes0 libxcb-cursor0 libgomp1 libsndfile1 \
-		${DOCKER_PROGRAMS_STR} tesseract-ocr-${ISO3_LANG}; \
+		libxcb-xfixes0 libxcb-cursor0 libgomp1 libsndfile1 libnss3 \
+		${DOCKER_PROGRAMS_STR} tesseract-ocr tesseract-ocr-eng; \
 	rm -rf /var/lib/apt/lists/*
-	
+
 RUN python3 -m pip install --no-cache-dir --upgrade --ignore-installed pip setuptools wheel
 
 # Rust toolchain
