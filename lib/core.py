@@ -7,7 +7,7 @@
 
 import argparse, asyncio, csv, difflib, fnmatch, sqlite3, hashlib, io, json, math, os, pytesseract, gc
 import random, shutil, subprocess, sys, tempfile, threading, time, uvicorn, copy, base64
-import traceback, socket, unicodedata, urllib.request, uuid, zipfile, fitz, multiprocessing
+import traceback, socket, unicodedata, urllib.request, uuid, zipfile, pymupdf, multiprocessing
 import ebooklib, psutil, requests, stanza, importlib, queue, pykakasi
 import regex as re, gradio as gr
 
@@ -989,7 +989,7 @@ def convert2epub(session_id:str)->bool:
             elif file_ext == '.pdf':
                 msg = 'File input is a PDF. flatten it in XHTML…'
                 print(msg)
-                doc = fitz.open(file_input)
+                doc = pymupdf.open(file_input)
                 file_meta = doc.metadata
                 filename_noext = os.path.splitext(os.path.basename(session['ebook']))[0]
                 title = file_meta.get('title') or filename_noext
