@@ -12,14 +12,12 @@ class DeviceInstaller():
     # kept out of requirements.txt and resolved by select_pkg().
     # names are PEP 503 normalized (hyphens) to match the head parsed from
     # requirements.txt, which writes 'huggingface_hub' with an underscore.
-    device_pkgs = ['onnxruntime', 'pyannote-audio', 'huggingface-hub', 'transformers']
+    device_pkgs = ["onnxruntime", "pyannote-audio", "huggingface-hub", "transformers"]
 
     # mutually exclusive distributions: only one of each list may end up installed.
     # select_pkg() decides which, finalize_exclusive_packages() removes the others
     # AFTER the requirements pass (a transitive requirement can reintroduce a loser).
-    exclusive_pkgs = {
-        'onnxruntime': ['onnxruntime', 'onnxruntime-gpu', 'onnxruntime-directml'],
-    }
+    exclusive_pkgs = {"onnxruntime": ["onnxruntime", "onnxruntime-gpu", "onnxruntime-directml"]}
 
     # scoped wheel cache shared by the requirements pass and
     # finalize_exclusive_packages(), wiped by drop_pip_cache() before
@@ -204,10 +202,10 @@ class DeviceInstaller():
                 return m.group(1)
             m = re.search(r'rocm\s*version\s*([0-9]+(?:\.[0-9]+){0,2})', text, re.IGNORECASE)
             if m:
-                return m.group(1)  # CHANGED: keep full version, don't truncate to major.minor
+                return m.group(1)
             m = re.search(r'hip\s*version\s*([0-9]+(?:\.[0-9]+){0,2})', text, re.IGNORECASE)
             if m:
-                return m.group(1)  # CHANGED: keep full version
+                return m.group(1)
             m = re.search(r'(oneapi|xpu)\s*(toolkit\s*)?version\s*([0-9]+(?:\.[0-9]+)?)', text, re.IGNORECASE)
             if m:
                 return m.group(3)
@@ -1753,9 +1751,9 @@ class DeviceInstaller():
                                     # over the +xpu wheels installed above.
                                     msg = 'Installing the Intel XPU plugin for torchcodec…'
                                     print(msg)
-                                    rc = subprocess.call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', 'torchlib-xpu', '--extra-index-url', f'{default_pytorch_url}/xpu'])
+                                    rc = subprocess.call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', 'torchcodec-xpu', 'torchlib-xpu', '--extra-index-url', f'{default_pytorch_url}/xpu'])
                                     if rc != 0:
-                                        msg = 'torchlib-xpu not installed (no wheel for this interpreter). torchcodec stays on the CPU decoder.'
+                                        msg = 'torchcodec-xpu and torchlib-xpu not installed (no wheel for this interpreter). torchcodec stays on the CPU decoder.'
                                         print(msg)
                                 # fail here, at build time, rather than at the first
                                 # conversion. --no-deps above means pip never checked
