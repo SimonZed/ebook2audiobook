@@ -1066,14 +1066,15 @@ def build_interface(args:dict)->gr.Blocks:
                 outputs = tuple([gr.update(interactive=False) for _ in range(10)])
                 return outputs + (gr.update(visible='hidden'), gr.update(visible='hidden'))
 
-            def _enable_on_voice_upload(session_id:str)->tuple:
-                session = context.get_session(session_id)
+            def _enable_on_voice_upload(session_id:str, ebook_src:str, ebook_textarea)->tuple:
                 visible_buttons = 'hidden'
                 enabled_convert_btn = False
-                outputs = tuple([gr.update(interactive=True) for _ in range(9)])
+                session = context.get_session(session_id)
                 if session and session.get('id', False):
-                    enabled_convert_btn = True if session['ebook'] is not None else enabled_convert_btn
-                    visible_buttons = True if session['voice'] is not None else visible_buttons
+                    outputs = tuple([gr.update(interactive=True) for _ in range(9)])
+                    if session and session.get('id', False):
+                        enabled_convert_btn = True if ebook_src is not None and ebook_textarea is not None else enabled_convert_btn
+                        visible_buttons = True if session['voice'] is not None else visible_buttons
                 return outputs + (gr.update(interactive=enabled_convert_btn), gr.update(visible=visible_buttons), gr.update(visible=visible_buttons))
 
             def _disable_on_custom_upload()->tuple:
@@ -3052,7 +3053,7 @@ def build_interface(args:dict)->gr.Blocks:
                 show_progress_on=[gr_voice_list]
             ).then(
                 fn=_enable_on_voice_upload,
-                inputs=[gr_session],
+                inputs=[gr_session, ebook_src, gr_ebook_textarea],
                 outputs=outputs_on_voice_upload,
                 show_progress_on=[gr_voice_list]
             )
