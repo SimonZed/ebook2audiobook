@@ -1066,7 +1066,7 @@ def build_interface(args:dict)->gr.Blocks:
                 outputs = tuple([gr.update(interactive=False) for _ in range(10)])
                 return outputs + (gr.update(visible='hidden'), gr.update(visible='hidden'))
 
-            def _enable_on_voice_upload(session_id:str, ebook_src:str, ebook_textarea)->tuple:
+            def _enable_on_voice_upload(session_id:str, ebook_src:str, ebook_textarea:str)->tuple:
                 visible_buttons = 'hidden'
                 enabled_convert_btn = False
                 session = context.get_session(session_id)
@@ -3053,7 +3053,7 @@ def build_interface(args:dict)->gr.Blocks:
                 show_progress_on=[gr_voice_list]
             ).then(
                 fn=_enable_on_voice_upload,
-                inputs=[gr_session, ebook_src, gr_ebook_textarea],
+                inputs=[gr_session, gr_ebook_src, gr_ebook_textarea],
                 outputs=outputs_on_voice_upload,
                 show_progress_on=[gr_voice_list]
             )
