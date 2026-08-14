@@ -671,7 +671,7 @@ class DeviceInstaller():
                         for t, entry in torch_matrix.items():
                             if self.system not in entry['os'] or not t.startswith('rocm'):
                                 continue
-                            ver_str = t[len('rocm-rel-'):] if t.startswith('rocm-rel-') else t[len('rocm'):]
+                            ver_str = t[len('win-rocm'):] if t.startswith('win-rocm') else t[len('rocm'):]
                             tag_ver = _normalize_version(ver_str)
                             if not tag_ver:
                                 continue
@@ -682,7 +682,7 @@ class DeviceInstaller():
                             if le_versions:
                                 matched = max(le_versions)
                                 if self.system == systems['WINDOWS']:
-                                    tag = f'rocm-rel-{matched[0]}.{matched[1]}.{matched[2]}' if matched[2] else f'rocm-rel-{matched[0]}.{matched[1]}'
+                                    tag = f'win-rocm{matched[0]}.{matched[1]}.{matched[2]}' if matched[2] else f'win-rocm{matched[0]}.{matched[1]}'
                                 else:
                                     tag = f'rocm{matched[0]}.{matched[1]}.{matched[2]}' if matched[2] else f'rocm{matched[0]}.{matched[1]}'
                         if cmp == 1:
@@ -709,7 +709,7 @@ class DeviceInstaller():
                                 for t, entry in torch_matrix.items():
                                     if self.system not in entry['os'] or not t.startswith('rocm'):
                                         continue
-                                    ver_str = t[len('rocm-rel-'):] if t.startswith('rocm-rel-') else t[len('rocm'):]
+                                    ver_str = t[len('win-rocm'):] if t.startswith('win-rocm') else t[len('rocm'):]
                                     tag_ver = _normalize_version(ver_str)
                                     if not tag_ver:
                                         continue
@@ -720,7 +720,7 @@ class DeviceInstaller():
                                     if le_versions:
                                         matched = max(le_versions)
                                         if self.system == systems['WINDOWS']:
-                                            tag = f'rocm-rel-{matched[0]}.{matched[1]}.{matched[2]}' if matched[2] else f'rocm-rel-{matched[0]}.{matched[1]}'
+                                            tag = f'win-rocm{matched[0]}.{matched[1]}.{matched[2]}' if matched[2] else f'win-rocm{matched[0]}.{matched[1]}'
                                         else:
                                             tag = f'rocm{matched[0]}.{matched[1]}.{matched[2]}' if matched[2] else f'rocm{matched[0]}.{matched[1]}'
                             msg = ''
@@ -825,7 +825,7 @@ class DeviceInstaller():
 
                 # 3) Version comparison + tag assignment
                 # Tolerant: CUDA > max is accepted (driver is backward-compatible),
-                # but torch build tag clamps at max (cu128) so we install a real wheel.
+                # but torch build tag clamps at cuda_version_range['max'] so we install a real wheel.
                 if version:
                     cmp, current, min_tuple, max_tuple = version_classify(version, cuda_version_range)
                     min_ver = f'{min_tuple[0]}.{min_tuple[1]}'
@@ -1590,16 +1590,19 @@ class DeviceInstaller():
             if tag == devices['CPU']['proc']:
                 return installed_tag is None or installed_tag == devices['CPU']['proc']
             # MPS: installed from '/whl/cpu' on macOS arm64 -> bare wheels
-            if device_info['name'] == devices['MPS']['proc']:
+            elif device_info['name'] == devices['MPS']['proc']:
                 return installed_tag is None
-            # ROCm Windows (TheRock): matrix key is 'rocm-rel-X.Y.Z' (kept distinct from
-            # the linux 'rocmX.Y' keys) but the wheel's local version drops '-rel-',
-            # e.g. tag='rocm-rel-7.2.1' -> '+rocm7.2.1' (optionally with a build suffix).
-            if device_info['name'] == devices['ROCM']['proc'] and self.system == systems['WINDOWS']:
-                wheel_tag = tag.replace('-rel-', '')
+            # ROCm Windows (TheRock): matrix key is 'win-rocmX.Y.Z' (kept distinct from
+            # the linux 'rocmX.Y' keys) but the wheel's local version drops 'win-',
+            # e.g. tag='win-rocm7.2.1' -> '+rocm7.2.1' (optionally with a build suffix).
+            elif device_info['name'] == devices['ROCM']['proc'] and self.system == systems['WINDOWS']:
+                wheel_tag = tag.replace('win-', '')
                 return installed_tag == wheel_tag or (installed_tag is not None and installed_tag.startswith(f'{wheel_tag}-'))
             # CUDA, XPU, ROCm Linux, Jetson: must be exactly '+<tag>'
             # (a pure hex local version means a custom/dev build -> reinstall)
+            elif device_info['name'] == devices['CUDA']['proc'] and self.system == systems['WINDOWS']:
+                wheel_tag = tag.replace('win-', '')
+                return installed_tag == wheel_tag or (installed_tag is not None and installed_tag.startswith(f'{wheel_tag}-'))
             return installed_tag == tag
 
         def _needs_reinstall():
@@ -1699,11 +1702,11 @@ class DeviceInstaller():
                                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-cache-dir', 'scipy'])
                             elif device_info['name'] == devices['ROCM']['proc'] and self.system == systems['WINDOWS']:
                                 url = default_pytorch_amd_url
-                                norm_tag = tag.replace('-rel-', '')
+                                norm_tag = tag.replace('win-', '')
                                 # rocm_sdk is required by torch ROCm wheels on Windows; install it first if missing
                                 import importlib.util
                                 if importlib.util.find_spec('rocm_sdk') is None:
-                                    rocm_ver = tag[len('rocm-rel-'):] if tag.startswith('rocm-rel-') else tag
+                                    rocm_ver = tag[len('win-rocm'):] if tag.startswith('win-rocm') else tag
                                     sdk_pkgs = [
                                         f'{url}/{tag}/rocm_sdk_core-{rocm_ver}-py3-none-{os_env}_{arch}.whl',
                                         f'{url}/{tag}/rocm_sdk_devel-{rocm_ver}-py3-none-{os_env}_{arch}.whl',
