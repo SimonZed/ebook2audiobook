@@ -1735,10 +1735,7 @@ class DeviceInstaller():
                                     torchcodec_index_url = f"{default_torchcodec_arm_url}/torchcodec-{arch}-{tag_py}/torchcodec-{torchcodec_version_matrix}%2B{tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl"
                                     rc = subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', torchcodec_index_url])
                                 else:
-                                    if has_native_codec:
-                                        torchcodec_index_url = f'{default_pytorch_url}/{tag_dir}'
-                                    else:
-                                        torchcodec_index_url = f'{default_pytorch_url}/cpu'
+                                    torchcodec_index_url = f'{default_pytorch_url}/{tag_dir}'
                                     rc = subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', f'torchcodec=={torchcodec_version_matrix}', '--index-url', torchcodec_index_url])
                                 if rc == 0:
                                     try:
