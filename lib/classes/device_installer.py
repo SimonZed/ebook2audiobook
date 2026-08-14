@@ -1745,29 +1745,59 @@ class DeviceInstaller():
                                     # only, video decode only — audio still runs on the
                                     # CPU path, so it changes nothing for TTS today and
                                     # is installed as a best-effort extra.
-                                    # --no-deps is mandatory: with --extra-index-url,
-                                    # PyPI stays the primary index and an unconstrained
-                                    # resolve is free to drag a CUDA torch/torchcodec in
-                                    # over the +xpu wheels installed above.
+                                    # --no-deps is MANDATORY. torchcodec-xpu declares
+                                    # torch~=2.13.0 and torchcodec~=0.15.0; without it pip
+                                    # honours those, silently uninstalls the torch and
+                                    # torchcodec pinned 30 lines above and replaces them.
+                                    # That is not hypothetical — it is what took the
+                                    # xpu build from 2.11.0+xpu/0.11.1 to 2.13.0+xpu/0.15.0
+                                    # mid-install, leaving torch_matrix describing an
+                                    # environment that no longer existed.
                                     msg = 'Installing the Intel XPU plugin for torchcodec…'
                                     print(msg)
-                                    rc = subprocess.call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', 'torchcodec-xpu', 'torchlib-xpu', '--extra-index-url', f'{default_pytorch_url}/xpu'])
+                                    rc = subprocess.call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', 'torchcodec-xpu', 'torchlib-xpu', '--extra-index-url', f'{default_pytorch_url}/xpu'])
                                     if rc != 0:
                                         msg = 'torchcodec-xpu and torchlib-xpu not installed (no wheel for this interpreter). torchcodec stays on the CPU decoder.'
                                         print(msg)
-                                # fail here, at build time, rather than at the first
-                                # conversion. --no-deps above means pip never checked
-                                # torchcodec against torch, and the torch_matrix 'codec'
-                                # pin is maintained by hand: torchcodec 0.11 requires
-                                # exactly torch 2.11, 0.12+ is ABI stable from 2.11 on.
-                                # Any drift surfaces only as 'Could not load
-                                # libtorchcodec' the first time a book is converted.
+                                    else:
+                                        # torchcodec-xpu registers itself as a torchcodec
+                                        # device-backend entry point, so torchcodec
+                                        # auto-loads it on plain 'import torchcodec'. If
+                                        # the plugin cannot load, it takes torchcodec down
+                                        # with it and pyannote/torchaudio go too — the
+                                        # plugin turns a working decoder into a broken one.
+                                        # It ships ops for ffmpeg 6, 7 and 8 only, so on any
+                                        # host with ffmpeg 4 or 5 (debian bookworm is 5.1)
+                                        # it raises 'No spec found for
+                                        # torchcodec_xpu.xpu_ops5'. Verify, and back the
+                                        # plugin out rather than leave the base broken.
+                                        rc = subprocess.call([sys.executable, '-c', 'import torchcodec'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                        if rc != 0:
+                                            msg = 'The Intel XPU plugin does not load here (it needs ffmpeg 6, 7 or 8) and it breaks "import torchcodec" while installed. Removing it; torchcodec stays on the CPU decoder.'
+                                            print(msg)
+                                            subprocess.call([sys.executable, '-m', 'pip', 'uninstall', '-y', '--root-user-action=ignore', 'torchcodec-xpu', 'torchlib-xpu'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                # WARN, never return 1. The first version of this check
+                                # aborted both native and docker builds outright, and the
+                                # conditions that trip it are not all fatal.
+                                # ffmpeg is installed before we get here in both modes
+                                # (HOST_PROGRAMS via install_programs, DOCKER_PROGRAMS_STR
+                                # in the Dockerfile apt layer), but torchcodec does not
+                                # want the ffmpeg BINARY — it dlopens libavutil.so.56
+                                # through .60. check_required_programs() tests
+                                # 'command -v ffmpeg', which a static build in
+                                # /usr/local/bin passes while shipping no shared libs at
+                                # all. That is what the native run hit: all five sonames
+                                # missing, so no libav* anywhere on the loader path.
+                                # Report what is actually installed — the matrix values
+                                # describe what was requested, and the two diverge exactly
+                                # when something upstream has replaced a pinned wheel.
                                 try:
-                                    subprocess.check_call([sys.executable, '-c', 'from torchcodec.decoders import AudioDecoder'])
+                                    subprocess.check_call([sys.executable, '-c', 'from torchcodec.decoders import AudioDecoder'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                                 except subprocess.CalledProcessError:
-                                    error = f'torchcodec {torchcodec_version_matrix} does not load against torch {torch_version_matrix}. Check the codec pin in torch_matrix and that ffmpeg 4-8 is installed.'
-                                    print(error)
-                                    return 1
+                                    installed_torch = self.get_package_version('torch') or 'unknown'
+                                    installed_codec = self.get_package_version('torchcodec') or 'unknown'
+                                    msg = f'Note: torchcodec {installed_codec} did not load against torch {installed_torch} (matrix asked for {torchcodec_version_matrix} / {torch_version_matrix}). Check "ldconfig -p | grep libavutil" — torchcodec needs the ffmpeg 4-8 shared libraries, not just the binary on PATH. Continuing.'
+                                    print(msg)
                         except subprocess.CalledProcessError as e:
                             error = f'Failed to install torch package: {e}'
                             print(error)

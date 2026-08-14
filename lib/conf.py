@@ -79,15 +79,15 @@ default_jetson_url = 'https://github.com/ROBERT-MCDOWELL/py-pkg/releases/downloa
 
 torch_matrix = {
     # CPU
-    "cpu":       {"os": list(systems.values()), "arch": list(archs.values()), "base": "2.7.1", "last": "2.11.0", "codec": "0.11.1"},
+    "cpu":       {"os": list(systems.values()), "arch": list(archs.values()), "base": "2.7.1", "last": "2.13.0", "codec": "0.15.0"},
     # CUDA
     "cu118":     {"os": [systems['LINUX'],systems['WINDOWS']], "arch": [archs['X86_64'], archs['AMD64']], "base": "2.7.1", "last": "2.7.1",  "codec": ""},
     "cu121":     {"os": [systems['LINUX'],systems['WINDOWS']], "arch": [archs['X86_64'], archs['AMD64']], "base": "2.5.1", "last": "2.5.1",  "codec": ""},
     "cu124":     {"os": [systems['LINUX'],systems['WINDOWS']], "arch": [archs['X86_64'], archs['AMD64']], "base": "2.6.0", "last": "2.6.0",  "codec": ""},
-    "cu126":     {"os": [systems['LINUX'],systems['WINDOWS']], "arch": [archs['X86_64'], archs['AMD64'], archs['AARCH64']], "base": "2.7.1", "last": "2.11.0", "codec": "0.11.1"},
-    "cu128":     {"os": [systems['LINUX'],systems['WINDOWS']], "arch": [archs['X86_64'], archs['AMD64'], archs['AARCH64']], "base": "2.7.1", "last": "2.9.0", "codec": "0.7.0"},
-    "cu129":     {"os": [systems['LINUX'],systems['WINDOWS']], "arch": [archs['X86_64'], archs['AMD64'], archs['AARCH64']], "base": "2.7.1", "last": "2.9.0", "codec": "0.7.0"},
-    "cu130":     {"os": [systems['LINUX'],systems['WINDOWS']], "arch": [archs['X86_64'], archs['AMD64'], archs['AARCH64']], "base": "2.7.1", "last": "2.11.0", "codec": "0.11.1"},
+    "cu126":     {"os": [systems['LINUX'],systems['WINDOWS']], "arch": [archs['X86_64'], archs['AMD64'], archs['AARCH64']], "base": "2.7.1", "last": "2.13.0", "codec": "0.13.0"},
+    "cu128":     {"os": [systems['LINUX'],systems['WINDOWS']], "arch": [archs['X86_64'], archs['AMD64'], archs['AARCH64']], "base": "2.7.1", "last": "2.11.0", "codec": "0.13.0"},
+    "cu129":     {"os": [systems['LINUX'],systems['WINDOWS']], "arch": [archs['X86_64'], archs['AMD64'], archs['AARCH64']], "base": "2.7.1", "last": "2.13.0", "codec": "0.13.0"},
+    "cu130":     {"os": [systems['LINUX'],systems['WINDOWS']], "arch": [archs['X86_64'], archs['AMD64'], archs['AARCH64']], "base": "2.7.1", "last": "2.13.0", "codec": "0.13.0"},
     # ROCm
     "rocm5.7":   {"os": [systems['LINUX']], "arch": [archs['X86_64']], "base": "2.3.1",  "last": "2.3.1",  "codec": ""},
     "rocm6.0":   {"os": [systems['LINUX']], "arch": [archs['X86_64']], "base": "2.4.1",  "last": "2.4.1",  "codec": ""},
@@ -96,13 +96,13 @@ torch_matrix = {
     "rocm6.2.4": {"os": [systems['LINUX']], "arch": [archs['X86_64']], "base": "2.7.1",  "last": "2.7.1",  "codec": ""},
     "rocm6.3":   {"os": [systems['LINUX']], "arch": [archs['X86_64']], "base": "2.7.1",  "last": "2.9.1",  "codec": "0.9.0"},
     "rocm7.0":   {"os": [systems['LINUX']], "arch": [archs['X86_64']], "base": "2.10.0", "last": "2.10.0", "codec": "0.10.0"},
-    "rocm7.1":   {"os": [systems['LINUX']], "arch": [archs['X86_64']], "base": "2.11.0", "last": "2.11.0", "codec": "0.11.1"},
-    "rocm7.2":   {"os": [systems['LINUX']], "arch": [archs['X86_64']], "base": "2.11.0", "last": "2.11.0", "codec": "0.11.1"},
+    "rocm7.1":   {"os": [systems['LINUX']], "arch": [archs['X86_64']], "base": "2.11.0", "last": "2.13.0", "codec": "0.13.0"},
+    "rocm7.2":   {"os": [systems['LINUX']], "arch": [archs['X86_64']], "base": "2.11.0", "last": "2.13.0", "codec": "0.13.0"},
     "rocm-rel-7.2.1": {"os": [systems['WINDOWS']], "arch": [archs['AMD64']], "base": "2.9.1",  "last": "2.9.1",  "codec": "0.11.1"},
     # MPS
-    "mps":       {"os": [systems['MACOS']], "arch": [archs['ARM64']], "base": "2.7.1", "last": "2.11.0", "codec": "0.11.1"},
+    "mps":       {"os": [systems['MACOS']], "arch": [archs['ARM64']], "base": "2.7.1", "last": "2.13.0", "codec": "0.13.0"},
     # XPU
-    "xpu":       {"os": [systems['LINUX'], systems['WINDOWS']], "arch": [archs['X86_64'], archs['AMD64']], "base": "2.7.1", "last": "2.11.0", "codec": "0.11.1"},
+    "xpu":       {"os": [systems['LINUX'], systems['WINDOWS']], "arch": [archs['X86_64'], archs['AMD64']], "base": "2.7.1", "last": "2.13.0", "codec": "0.13.0"},
     # JETSON
     "jetson51":  {"os": [systems['LINUX']], "arch": [archs['AARCH64']], "base": "2.4.1", "last": "2.4.1", "codec": ""},
     "jetson60":  {"os": [systems['LINUX']], "arch": [archs['AARCH64']], "base": "2.4.0", "last": "2.4.0", "codec": ""},

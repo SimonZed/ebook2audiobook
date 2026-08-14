@@ -74,9 +74,6 @@ RUN find /app -type f \( -name "*.sh" -o -name "*.command" \) -exec sed -i 's/\r
 
 ENV QT_QPA_PLATFORM=offscreen
 
-# Build dependencies via project script
-RUN ./ebook2audiobook.command --script_mode build_docker --docker_device "$DOCKER_DEVICE_STR"
-
 # Build the image and Cleanup build-only packages and Rust toolchain to shrink the image
 RUN set -eux; \
 	./ebook2audiobook.command --script_mode build_docker --docker_device "${DOCKER_DEVICE_STR}"; \
