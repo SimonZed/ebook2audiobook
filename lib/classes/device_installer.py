@@ -1655,9 +1655,6 @@ class DeviceInstaller():
                     if tag in ['unknown','unsupported']:
                         return 0
                     key = 'last' if self.python_version >= (3, 12) else 'base'
-                    # the tag arrives as JSON on the command line in build_docker mode,
-                    # so treat it as untrusted input rather than letting a typo surface
-                    # as a bare KeyError from inside a 200-line try block.
                     matrix_entry = torch_matrix.get(tag)
                     if not matrix_entry:
                         error = f'No torch_matrix entry for tag {tag}.'
@@ -1665,9 +1662,6 @@ class DeviceInstaller():
                         return 1
                     torch_version_matrix = matrix_entry.get(key) or matrix_entry['base']
                     torchcodec_version_matrix = matrix_entry.get('codec') or ''
-                    # macOS Intel was dropped from torch wheels after 2.2.2 — pin it before
-                    # any version comparison happens, otherwise _needs_reinstall() compares
-                    # against the matrix's 'last' and triggers an unnecessary reinstall.
                     if device_info['os'] == 'macosx_11_0' and device_info['arch'] == archs['X86_64']:
                         torch_version_matrix = '2.2.2'
                         torchcodec_version_matrix = ''  # 2.2.2 < 2.9, no torchcodec
@@ -1688,14 +1682,21 @@ class DeviceInstaller():
                             os_env = device_info['os']
                             arch = device_info['arch']
                             toolkit_version = ''.join(c for c in tag if c.isdigit())
-                            tag_dir = tag
+                            tag_dir = 'cpu' if device_info['name'] == devices['MPS']['proc'] else tag
                             py_major, py_minor = device_info['pyvenv']
                             tag_py = f'cp{py_major}{py_minor}'
+                            torchaudio_version_matrix = self.torchaudio_version(torch_version_matrix)
+                            is_cpu_aarch64_linux = (
+                                tag == devices['CPU']['proc']
+                                and device_info['os'] in ('manylinux_2_28', 'linux')
+                                and device_info['arch'] == archs['AARCH64']
+                            )
+                            #### torch/torchaudio installation
                             subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-cache-dir', 'filelock', 'typing-extensions', 'jinja2', 'fsspec', 'networkx', 'sympy'])
                             if device_info['name'] == devices['JETSON']['proc']:
                                 url = default_jetson_url
                                 torch_pkg = f"{url}/torch-v{toolkit_version}/torch-{torch_version_matrix}%2B{tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl"
-                                torchaudio_pkg = f"{url}/torchaudio-v{toolkit_version}/torchaudio-{self.torchaudio_version(torch_version_matrix)}%2B{tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl"
+                                torchaudio_pkg = f"{url}/torchaudio-v{toolkit_version}/torchaudio-{self.torchaudio_version(torchaudio_version_matrix)}%2B{tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl"
                                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', torch_pkg])
                                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', torchaudio_pkg])
                                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-cache-dir', 'scikit-learn'])
@@ -1717,86 +1718,37 @@ class DeviceInstaller():
                                     print(msg)
                                     subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-cache-dir', *sdk_pkgs])
                                 torch_pkg = f'{url}/{tag}/torch-{torch_version_matrix}%2B{norm_tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl'
-                                torchaudio_pkg = f'{url}/{tag}/torchaudio-{self.torchaudio_version(torch_version_matrix)}%2B{norm_tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl'
+                                torchaudio_pkg = f'{url}/{tag}/torchaudio-{self.torchaudio_version(torchaudio_version_matrix)}%2B{norm_tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl'
                                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', torch_pkg, torchaudio_pkg])
                             else:
                                 url = default_pytorch_url
-                                tag_dir = 'cpu' if device_info['name'] == devices['MPS']['proc'] else tag
-                                torchaudio_version_matrix = self.torchaudio_version(torch_version_matrix)
                                 torch_req = [f'torch=={torch_version_matrix}', f'torchaudio=={torchaudio_version_matrix}', '--index-url', f'{url}/{tag_dir}']
-                                if torchaudio_version_matrix != torch_version_matrix:
-                                    msg = f'torchaudio stops at {self.torchaudio_max}; pinning it there against torch {torch_version_matrix}.'
-                                    print(msg)
-                                # Force only the torch/torchaudio wheels (variant override), then a
-                                # plain resolve pass to pull just the missing CUDA deps. Already-correct
-                                # nvidia-* wheels are left as-is — pip's default only-if-needed strategy
-                                # won't re-download or re-uninstall them.
-                                # --force-reinstall, not --ignore-installed: the latter never
-                                # uninstalls, it unpacks over what is there. Switching a box between
-                                # variants (cu126 -> xpu, say) then leaves the previous build's
-                                # torch/lib/*.so behind for torch's own loader to find. Same class of
-                                # breakage clean_pkg_dir() exists to undo for onnxruntime.
-                                # --no-deps keeps the blast radius on the two named wheels.
                                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', *torch_req])
                                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-cache-dir', *torch_req])
+                            #### torchcodec installation
                             if self.version_tuple(torch_version_matrix, 2) >= (2, 9) and torchcodec_version_matrix:
-                                is_cpu_aarch64_linux = (
-                                    tag == devices['CPU']['proc']
-                                    and device_info['os'] in ('manylinux_2_28', 'linux')
-                                    and device_info['arch'] == archs['AARCH64']
-                                )
-                                has_native_codec = (
-                                    device_info['name'] == devices['CUDA']['proc']
-                                    and self.system != systems['WINDOWS']
-                                ) or tag == devices['CPU']['proc']
-                                if is_cpu_aarch64_linux:
+                                if device_info['name'] == devices['XPU']['proc'] and self.system == systems['LINUX']:
+                                    msg = 'Installing torchcodec and the Intel XPU plugin…'
+                                    print(msg)
+                                    rc = subprocess.call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', 'torchcodec-xpu', '--extra-index-url', f'{default_pytorch_url}/xpu'])
+                                elif is_cpu_aarch64_linux:
                                     torchcodec_index_url = f"{default_torchcodec_arm_url}/torchcodec-{arch}-{tag_py}/torchcodec-{torchcodec_version_matrix}%2B{tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl"
-                                    subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', torchcodec_index_url])
+                                    rc = subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', torchcodec_index_url])
                                 else:
                                     if has_native_codec:
                                         torchcodec_index_url = f'{default_pytorch_url}/{tag_dir}'
                                     else:
-                                        # every other accelerator (xpu, rocm, windows
-                                        # cuda) falls back to the +cpu variant. That is
-                                        # deliberate, not a bug: the /whl/<tag> indexes
-                                        # carry no torchcodec, and from 0.11 the PyPI
-                                        # wheel links CUDA directly, so pulling it from
-                                        # anywhere but /whl/cpu breaks 'import
-                                        # torchcodec' outright on a non-CUDA box.
-                                        # pyannote-audio 4 and torchaudio 2.11's
-                                        # load()/save() both go through torchcodec, so
-                                        # that import has to work whatever the device.
                                         torchcodec_index_url = f'{default_pytorch_url}/cpu'
-                                    subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', f'torchcodec=={torchcodec_version_matrix}', '--index-url', torchcodec_index_url])
-                                if device_info['name'] == devices['XPU']['proc'] and self.system == systems['LINUX']:
-                                    # Intel's torchcodec plugin (github.com/intel/torchlib-xpu).
-                                    # It EXTENDS torchcodec, it does not replace it: the
-                                    # module is 'torchcodec_xpu' and torchcodec must
-                                    # already import for the entry point to load. Linux
-                                    # only, video decode only — audio still runs on the
-                                    # CPU path, so it changes nothing for TTS today and
-                                    # is installed as a best-effort extra.
-                                    # --no-deps is mandatory: with --extra-index-url,
-                                    # PyPI stays the primary index and an unconstrained
-                                    # resolve is free to drag a CUDA torch/torchcodec in
-                                    # over the +xpu wheels installed above.
-                                    msg = 'Installing the Intel XPU plugin for torchcodec…'
-                                    print(msg)
-                                    rc = subprocess.call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', 'torchlib-xpu', '--extra-index-url', f'{default_pytorch_url}/xpu'])
-                                    if rc != 0:
-                                        msg = 'torchlib-xpu not installed (no wheel for this interpreter). torchcodec stays on the CPU decoder.'
-                                        print(msg)
-                                # fail here, at build time, rather than at the first
-                                # conversion. --no-deps above means pip never checked
-                                # torchcodec against torch, and the torch_matrix 'codec'
-                                # pin is maintained by hand: torchcodec 0.11 requires
-                                # exactly torch 2.11, 0.12+ is ABI stable from 2.11 on.
-                                # Any drift surfaces only as 'Could not load
-                                # libtorchcodec' the first time a book is converted.
-                                try:
-                                    subprocess.check_call([sys.executable, '-c', 'from torchcodec.decoders import AudioDecoder'])
-                                except subprocess.CalledProcessError:
-                                    error = f'torchcodec {torchcodec_version_matrix} does not load against torch {torch_version_matrix}. Check the codec pin in torch_matrix and that ffmpeg 4-8 is installed.'
+                                    rc = subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', f'torchcodec=={torchcodec_version_matrix}', '--index-url', torchcodec_index_url])
+                                if rc == 0:
+                                    try:
+                                        subprocess.check_call([sys.executable, '-c', 'from torchcodec.decoders import AudioDecoder'])
+                                    except subprocess.CalledProcessError:
+                                        error = f'torchcodec {torchcodec_version_matrix} does not load against torch {torch_version_matrix}. Check the codec pin in torch_matrix and that ffmpeg 4-8 is installed.'
+                                        print(error)
+                                        return 1
+                                else:
+                                    error = 'torchcodec not installed! Please check the log.'
                                     print(error)
                                     return 1
                         except subprocess.CalledProcessError as e:
