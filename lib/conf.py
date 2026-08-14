@@ -79,7 +79,7 @@ default_jetson_url = 'https://github.com/ROBERT-MCDOWELL/py-pkg/releases/downloa
 
 torch_matrix = {
     # CPU
-    "cpu":       {"os": list(systems.values()), "arch": list(archs.values()), "base": "2.7.1", "last": "2.7.1", "codec": "0.15.0"},
+    "cpu":       {"os": list(systems.values()), "arch": list(archs.values()), "base": "2.7.1", "last": "2.13.0", "codec": "0.15.0"},
     # CUDA
     "cu118":     {"os": [systems['LINUX'],systems['WINDOWS']], "arch": [archs['X86_64'], archs['AMD64']], "base": "2.7.1", "last": "2.7.1",  "codec": ""},
     "cu121":     {"os": [systems['LINUX'],systems['WINDOWS']], "arch": [archs['X86_64'], archs['AMD64']], "base": "2.5.1", "last": "2.5.1",  "codec": ""},
