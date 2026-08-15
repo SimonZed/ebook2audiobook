@@ -88,7 +88,7 @@ torch_matrix = {
     "cu128":     {"os": [systems['LINUX']], "arch": [archs['X86_64'], archs['AARCH64']], "base": "2.7.1", "last": "2.13.0", "codec": "0.15.0"},
     "win-cu128":{"os": [systems['WINDOWS']], "arch": [archs['AMD64']], "base": "2.7.1", "last": "2.9.1", "codec": "0.9.0"},
     "cu129":     {"os": [systems['LINUX']], "arch": [archs['X86_64'], archs['AARCH64']], "base": "2.7.1", "last": "2.13.0", "codec": "0.15.0"},
-    "win-cu129":{"os": [systems['WINDOWS']], "arch": [archs['AMD64']], "base": "2.7.1", "last": "2.9.0", "codec": "0.9.0"},
+    "win-cu129":{"os": [systems['WINDOWS']], "arch": [archs['AMD64']], "base": "2.7.1", "last": "2.8.0", "codec": "0.8.0"},
     "cu130":     {"os": [systems['LINUX'],systems['WINDOWS']], "arch": [archs['X86_64'], archs['AMD64'], archs['AARCH64']], "base": "2.7.1", "last": "2.13.0", "codec": "0.15.0"},
     "cu132":     {"os": [systems['LINUX'],systems['WINDOWS']], "arch": [archs['X86_64'], archs['AMD64'], archs['AARCH64']], "base": "2.7.1", "last": "2.13.0", "codec": "0.15.0"},
     # ROCm
