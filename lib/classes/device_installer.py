@@ -1770,14 +1770,14 @@ class DeviceInstaller():
                                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', *torch_req])
                             #### torchcodec installation
                             if self.version_tuple(torch_version_matrix, 2) >= (2, 9) and torchcodec_version_matrix:
-                                if device_info['name'] == devices['XPU']['proc']:
-                                    msg = 'Installing torchcodec and the Intel XPU plugin…'
-                                    print(msg)
-                                    rc = subprocess.call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', 'torchcodec-xpu', '--extra-index-url', f'{default_pytorch_url}/xpu'])
-                                elif is_cpu_aarch64_linux:
+                                if is_cpu_aarch64_linux:
                                     torchcodec_index_url = f"{default_torchcodec_arm_url}/torchcodec-{arch}-{tag_py}/torchcodec-{torchcodec_version_matrix}%2B{tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl"
                                     rc = subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', torchcodec_index_url])
                                 else:
+                                    if device_info['name'] == devices['XPU']['proc']:
+                                        msg = 'Installing torchcodec and the Intel XPU plugin…'
+                                        print(msg)
+                                        rc = subprocess.call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', 'torchcodec-xpu', '--extra-index-url', f'{default_pytorch_url}/xpu'])
                                     torchcodec_index_url = f'{default_pytorch_url}/{tag_dir}'
                                     rc = subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', f'torchcodec=={torchcodec_version_matrix}', '--index-url', torchcodec_index_url])
                                 if rc == 0:
