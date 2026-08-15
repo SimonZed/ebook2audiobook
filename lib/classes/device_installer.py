@@ -1744,7 +1744,7 @@ class DeviceInstaller():
                             elif device_info['name'] == devices['ROCM']['proc'] and self.system == systems['WINDOWS']:
                                 url = default_pytorch_amd_url
                                 real_tag = tag.replace('win-', '')
-                                url_tag = tag.replace('win-rocm', 'rocm-rel')
+                                url_tag = tag.replace('win-rocm', 'rocm-rel-')
                                 # rocm_sdk is required by torch ROCm wheels on Windows; install it first if missing
                                 import importlib.util
                                 if importlib.util.find_spec('rocm_sdk') is None:
