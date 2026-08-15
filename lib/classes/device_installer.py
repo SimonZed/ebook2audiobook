@@ -1668,6 +1668,7 @@ class DeviceInstaller():
                     msg = f'---> Hardware detected: {device_info}'
                     print(msg)
                     #tag = device_info.get('tag')
+                    print(f"--------------{device_info.get('tag')}---------------")
                     tag = 'win-cu128'
                     if tag in ['unknown','unsupported']:
                         return 0
