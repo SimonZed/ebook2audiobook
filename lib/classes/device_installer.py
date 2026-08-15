@@ -1766,7 +1766,7 @@ class DeviceInstaller():
                                         print(error)
                                         return 1
                                 else:
-                                    error = 'torchcodec not installed! Please check the log.'
+                                    error = 'torchcodec not installed! Please check the log and if ffmpeg is installed as ahared and its path registered in your OS lib path.'
                                     print(error)
                                     return 1
                         except subprocess.CalledProcessError as e:
