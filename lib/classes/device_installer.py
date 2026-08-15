@@ -1761,14 +1761,14 @@ class DeviceInstaller():
                                     subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-cache-dir', *sdk_pkgs])
                                 torch_pkg = f'{url}/{rocm_tag}/torch-{torch_version_matrix}%2B{real_tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl'
                                 torchaudio_pkg = f'{url}/{rocm_tag}/torchaudio-{self.torchaudio_version(torchaudio_version_matrix)}%2B{real_tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl'
-                                subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', torch_pkg, torchaudio_pkg])
+                                subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', torch_pkg, torchaudio_pkg])
                             else:
                                 url = default_pytorch_url
                                 url_tag = tag_dir
                                 if self.system == systems['WINDOWS'] and tag.startswith('win-cu'):
                                     url_tag = tag.replace('win-', '')
                                 torch_req = [f'torch=={torch_version_matrix}', f'torchaudio=={torchaudio_version_matrix}', '--index-url', f'{url}/{url_tag}']
-                                subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--nodeps', *torch_req])
+                                subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', *torch_req])
                             #### torchcodec installation
                             if self.version_tuple(torch_version_matrix, 2) >= (2, 9) and torchcodec_version_matrix:
                                 if device_info['name'] == devices['XPU']['proc'] and self.system == systems['LINUX']:
