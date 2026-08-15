@@ -1745,16 +1745,16 @@ class DeviceInstaller():
                             elif device_info['name'] == devices['ROCM']['proc'] and self.system == systems['WINDOWS']:
                                 url = default_pytorch_amd_url
                                 real_tag = tag.replace('win-', '')
-                                rocm_tag = tag.replace('win-rocm', 'rocm-rel')
+                                url_tag = tag.replace('win-rocm', 'rocm-rel')
                                 # rocm_sdk is required by torch ROCm wheels on Windows; install it first if missing
                                 import importlib.util
                                 if importlib.util.find_spec('rocm_sdk') is None:
-                                    rocm_ver = rocm_tag[len('win-rocm'):] if rocm_tag.startswith('win-rocm') else rocm_tag
+                                    rocm_ver = tag[len('win-rocm'):] if tag.startswith('win-rocm') else tag
                                     sdk_pkgs = [
-                                        f'{url}/{rocm_tag}/rocm_sdk_core-{rocm_ver}-py3-none-{os_env}_{arch}.whl',
-                                        f'{url}/{rocm_tag}/rocm_sdk_devel-{rocm_ver}-py3-none-{os_env}_{arch}.whl',
-                                        f'{url}/{rocm_tag}/rocm_sdk_libraries_custom-{rocm_ver}-py3-none-{os_env}_{arch}.whl',
-                                        f'{url}/{rocm_tag}/rocm-{rocm_ver}.tar.gz',
+                                        f'{url}/{url_tag}/rocm_sdk_core-{rocm_ver}-py3-none-{os_env}_{arch}.whl',
+                                        f'{url}/{url_tag}/rocm_sdk_devel-{rocm_ver}-py3-none-{os_env}_{arch}.whl',
+                                        f'{url}/{url_tag}/rocm_sdk_libraries_custom-{rocm_ver}-py3-none-{os_env}_{arch}.whl',
+                                        f'{url}/{url_tag}/rocm-{rocm_ver}.tar.gz',
                                     ]
                                     msg = f'Installing ROCm SDK {rocm_ver}…'
                                     print(msg)
@@ -1764,12 +1764,11 @@ class DeviceInstaller():
                                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', torch_pkg, torchaudio_pkg])
                             else:
                                 url = default_pytorch_url
-                                real_tag = tag_dir
+                                url_tag = tag_dir
                                 if self.system == systems['WINDOWS'] and tag.startswith('win-cu'):
-                                    real_tag = tag.replace('win-', '')
-                                torch_req = [f'torch=={torch_version_matrix}', f'torchaudio=={torchaudio_version_matrix}', '--index-url', f'{url}/{real_tag}']
-                                subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', *torch_req])
-                                subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-cache-dir', *torch_req])
+                                    url_tag = tag.replace('win-', '')
+                                torch_req = [f'torch=={torch_version_matrix}', f'torchaudio=={torchaudio_version_matrix}', '--index-url', f'{url}/{url_tag}']
+                                subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--nodeps', *torch_req])
                             #### torchcodec installation
                             if self.version_tuple(torch_version_matrix, 2) >= (2, 9) and torchcodec_version_matrix:
                                 if device_info['name'] == devices['XPU']['proc'] and self.system == systems['LINUX']:
