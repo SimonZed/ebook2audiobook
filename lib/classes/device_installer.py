@@ -458,6 +458,8 @@ class DeviceInstaller():
                 name = devices['CUDA']['proc'] if tag_letters == 'cu' else devices['ROCM']['proc'] if tag_letters == devices['ROCM']['proc'] else devices['JETSON']['proc'] if tag_letters == devices['JETSON']['proc'] else devices['XPU']['proc'] if tag_letters == devices['XPU']['proc'] else devices['MPS']['proc'] if tag_letters == devices['MPS']['proc'] else devices['CPU']['proc']
                 devices[name.upper()]['found'] = True
                 tag = forced_tag
+                if (forced_tag in ['cu128', 'cu129', 'rocm7.2.1'] and self.system == systems['WINDOWS']:
+                    tag = f'win-{forced_tag}'
                 msg = f'Hardware forced from DEVICE_TAG={tag}'
             else:
                 msg = f'DEVICE_TAG not valid'
@@ -877,7 +879,29 @@ class DeviceInstaller():
                                 else:
                                     tag = f'cu{max_tuple[0]}{max_tuple[1]}'
                             name = devices['CUDA']['proc']
-                            msg = ''
+                            compat_versions = []
+                            for t, entry in torch_matrix.items():
+                                if self.system not in entry['os'] or not t.startswith('cu'):
+                                    continue
+                                ver_str = t[len('win-cu'):] if t.startswith('win-cu') else t[len('cu'):]
+                                tag_ver = _normalize_version(ver_str)
+                                if not tag_ver:
+                                    continue
+                                compat_versions.append(tag_ver)
+                            tag = None
+                            if compat_versions:
+                                le_versions = [v for v in compat_versions if v <= version]
+                                if le_versions:
+                                    matched = max(le_versions)
+                                    if self.system == systems['WINDOWS']:
+                                        tag = f'win-cu{matched[0]}.{matched[1]}.{matched[2]}' if matched[2] else f'win-cu{matched[0]}.{matched[1]}'
+                                    else:
+                                        tag = f'cu{matched[0]}.{matched[1]}.{matched[2]}' if matched[2] else f'cu{matched[0]}.{matched[1]}'
+                            if cmp == 1:
+                                tag = f'cu{max_tuple[0]}{max_tuple[1]}'
+                                msg = f'CUDA {version} but tested max {max_ver} so using torch for cu{max_tuple[0]}{max_tuple[1]}'
+                            else:
+                                tag = f'cu{current[0]}{current[1]}'  # still index 0/1, ignore patch
                     except Exception:
                         pass
 
@@ -1668,7 +1692,6 @@ class DeviceInstaller():
                     msg = f'---> Hardware detected: {device_info}'
                     print(msg)
                     #tag = device_info.get('tag')
-                    print(f"--------------{device_info.get('tag')}---------------")
                     tag = 'win-cu128'
                     if tag in ['unknown','unsupported']:
                         return 0
