@@ -1770,7 +1770,7 @@ class DeviceInstaller():
                                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', *torch_req])
                             #### torchcodec installation
                             if self.version_tuple(torch_version_matrix, 2) >= (2, 9) and torchcodec_version_matrix:
-                                if device_info['name'] == devices['XPU']['proc'] and self.system == systems['LINUX']:
+                                if device_info['name'] == devices['XPU']['proc']:
                                     msg = 'Installing torchcodec and the Intel XPU plugin…'
                                     print(msg)
                                     rc = subprocess.call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', 'torchcodec-xpu', '--extra-index-url', f'{default_pytorch_url}/xpu'])
@@ -1784,7 +1784,7 @@ class DeviceInstaller():
                                     try:
                                         subprocess.check_call([sys.executable, '-c', 'from torchcodec.decoders import AudioDecoder'])
                                     except subprocess.CalledProcessError:
-                                        error = f'torchcodec {torchcodec_version_matrix} does not load against torch {torch_version_matrix}. Check the codec pin in torch_matrix and that ffmpeg 4-8 is installed.'
+                                        error = f'torchcodec {torchcodec_version_matrix} does not load against torch {torch_version_matrix}. Check if ffmpeg is installed as ahared and its path registered in your OS lib path.'
                                         print(error)
                                         return 1
                                 else:
