@@ -835,6 +835,24 @@ class DeviceInstaller():
                     else:
                         devices['CUDA']['found'] = True
                         name = devices['CUDA']['proc']
+                        compat_versions = []
+                        for t, entry in torch_matrix.items():
+                            if self.system not in entry['os'] or not t.startswith('cu'):
+                                continue
+                            ver_str = t[len('win-cu'):] if t.startswith('win-cu') else t[len('cu'):]
+                            tag_ver = _normalize_version(ver_str)
+                            if not tag_ver:
+                                continue
+                            compat_versions.append(tag_ver)
+                        tag = None
+                        if compat_versions:
+                            le_versions = [v for v in compat_versions if v <= version]
+                            if le_versions:
+                                matched = max(le_versions)
+                                if self.system == systems['WINDOWS']:
+                                    tag = f'win-cu{matched[0]}.{matched[1]}.{matched[2]}' if matched[2] else f'win-cu{matched[0]}.{matched[1]}'
+                                else:
+                                    tag = f'cu{matched[0]}.{matched[1]}.{matched[2]}' if matched[2] else f'cu{matched[0]}.{matched[1]}'
                         if cmp == 1:
                             tag = f'cu{max_tuple[0]}{max_tuple[1]}'
                             msg = f'CUDA {version} but tested max {max_ver} so using torch for cu{max_tuple[0]}{max_tuple[1]}'
@@ -1702,29 +1720,30 @@ class DeviceInstaller():
                                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-cache-dir', 'scipy'])
                             elif device_info['name'] == devices['ROCM']['proc'] and self.system == systems['WINDOWS']:
                                 url = default_pytorch_amd_url
-                                norm_tag = tag.replace('win-', '')
+                                real_tag = tag.replace('win-', '')
+                                rocm_tag = tag.replace('win-rocm', 'rocm-rel')
                                 # rocm_sdk is required by torch ROCm wheels on Windows; install it first if missing
                                 import importlib.util
                                 if importlib.util.find_spec('rocm_sdk') is None:
-                                    rocm_ver = tag[len('win-rocm'):] if tag.startswith('win-rocm') else tag
+                                    rocm_ver = rocm_tag[len('win-rocm'):] if rocm_tag.startswith('win-rocm') else rocm_tag
                                     sdk_pkgs = [
-                                        f'{url}/{tag}/rocm_sdk_core-{rocm_ver}-py3-none-{os_env}_{arch}.whl',
-                                        f'{url}/{tag}/rocm_sdk_devel-{rocm_ver}-py3-none-{os_env}_{arch}.whl',
-                                        f'{url}/{tag}/rocm_sdk_libraries_custom-{rocm_ver}-py3-none-{os_env}_{arch}.whl',
-                                        f'{url}/{tag}/rocm-{rocm_ver}.tar.gz',
+                                        f'{url}/{rocm_tag}/rocm_sdk_core-{rocm_ver}-py3-none-{os_env}_{arch}.whl',
+                                        f'{url}/{rocm_tag}/rocm_sdk_devel-{rocm_ver}-py3-none-{os_env}_{arch}.whl',
+                                        f'{url}/{rocm_tag}/rocm_sdk_libraries_custom-{rocm_ver}-py3-none-{os_env}_{arch}.whl',
+                                        f'{url}/{rocm_tag}/rocm-{rocm_ver}.tar.gz',
                                     ]
                                     msg = f'Installing ROCm SDK {rocm_ver}…'
                                     print(msg)
                                     subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-cache-dir', *sdk_pkgs])
-                                torch_pkg = f'{url}/{tag}/torch-{torch_version_matrix}%2B{norm_tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl'
-                                torchaudio_pkg = f'{url}/{tag}/torchaudio-{self.torchaudio_version(torchaudio_version_matrix)}%2B{norm_tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl'
+                                torch_pkg = f'{url}/{rocm_tag}/torch-{torch_version_matrix}%2B{real_tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl'
+                                torchaudio_pkg = f'{url}/{rocm_tag}/torchaudio-{self.torchaudio_version(torchaudio_version_matrix)}%2B{real_tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl'
                                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', torch_pkg, torchaudio_pkg])
                             else:
                                 url = default_pytorch_url
-                                norm_tag_dir = tag_dir
+                                real_tag = tag_dir
                                 if self.system == systems['WINDOWS'] and tag.startswith('win-cu'):
-                                    norm_tag_dir = tag.replace('win-', '')
-                                torch_req = [f'torch=={torch_version_matrix}', f'torchaudio=={torchaudio_version_matrix}', '--index-url', f'{url}/{norm_tag_dir}']
+                                    real_tag = tag.replace('win-', '')
+                                torch_req = [f'torch=={torch_version_matrix}', f'torchaudio=={torchaudio_version_matrix}', '--index-url', f'{url}/{real_tag}']
                                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', *torch_req])
                                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-cache-dir', *torch_req])
                             #### torchcodec installation
