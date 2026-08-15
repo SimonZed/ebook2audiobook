@@ -513,7 +513,6 @@ class DeviceInstaller():
                 try:
                     import ctypes
                     libhip = None
-
                     if os.name == 'nt':
                         hip_path = os.environ.get('HIP_PATH', '')
                         candidates = ['amdhip64.dll']
@@ -782,7 +781,6 @@ class DeviceInstaller():
                                 break
                             except OSError:
                                 continue
-
                     if libcudart:
                         v_int = ctypes.c_int()
                         if libcudart.cudaRuntimeGetVersion(ctypes.byref(v_int)) == 0:
@@ -1723,7 +1721,10 @@ class DeviceInstaller():
                                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', torch_pkg, torchaudio_pkg])
                             else:
                                 url = default_pytorch_url
-                                torch_req = [f'torch=={torch_version_matrix}', f'torchaudio=={torchaudio_version_matrix}', '--index-url', f'{url}/{tag_dir}']
+                                norm_tag_dir = tag_dir
+                                if self.system == systems['WINDOWS'] and tag.startswith('win-cu'):
+                                    norm_tag_dir = tag.replace('win-', '')
+                                torch_req = [f'torch=={torch_version_matrix}', f'torchaudio=={torchaudio_version_matrix}', '--index-url', f'{url}/{norm_tag_dir}']
                                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', *torch_req])
                                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-cache-dir', *torch_req])
                             #### torchcodec installation
