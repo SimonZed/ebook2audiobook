@@ -931,7 +931,12 @@ class DeviceInstaller():
             # ============================================================
             # INTEL XPU
             # ============================================================
-            elif has_xpu() and has_intel_gpu_pci():
+            # gated on the PCI scan ALONE. has_xpu() needs sycl-ls or clinfo on PATH,
+            # which are oneAPI *toolkit* binaries — torch xpu wheels ship their own
+            # SYCL runtime and need none of it, so gating on them dropped real XPU
+            # hosts to cpu with an empty note. The decision now happens inside the
+            # branch, where a missing user-mode driver produces a message that says so.
+            elif has_intel_gpu_pci():
                 version = ''
                 msg = ''
                 xpu_device_count = 0
@@ -975,36 +980,69 @@ class DeviceInstaller():
                                 continue
 
                     if libze:
+                        # argtypes are mandatory here: without them ctypes marshals a
+                        # handle taken out of the array as a C int and truncates the
+                        # top 32 bits of the pointer.
+                        libze.zeDriverGet.argtypes = [ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_void_p)]
+                        libze.zeDeviceGet.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_void_p)]
+                        libze.zeDeviceGetProperties.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
                         if libze.zeInit(ctypes.c_uint(0)) == 0:
                             driver_count = ctypes.c_uint(0)
                             if libze.zeDriverGet(ctypes.byref(driver_count), None) == 0 and driver_count.value > 0:
-                                xpu_device_count = driver_count.value
-                except (OSError, AttributeError):
+                                drivers = (ctypes.c_void_p * driver_count.value)()
+                                if libze.zeDriverGet(ctypes.byref(driver_count), drivers) == 0:
+                                    # ze_device_properties_t starts with {stype, pNext, type}.
+                                    # stype is 4 bytes padded up to pointer alignment, so
+                                    # 'type' sits two pointer widths in on any ABI we ship on.
+                                    ptr_size = ctypes.sizeof(ctypes.c_void_p)
+                                    for drv in drivers:
+                                        if not drv:
+                                            continue
+                                        device_count = ctypes.c_uint(0)
+                                        if libze.zeDeviceGet(ctypes.c_void_p(drv), ctypes.byref(device_count), None) != 0:
+                                            continue
+                                        if device_count.value == 0:
+                                            continue
+                                        ze_devices = (ctypes.c_void_p * device_count.value)()
+                                        if libze.zeDeviceGet(ctypes.c_void_p(drv), ctypes.byref(device_count), ze_devices) != 0:
+                                            continue
+                                        for dev in ze_devices:
+                                            if not dev:
+                                                continue
+                                            # oversized zeroed buffer: the loader fills only
+                                            # the fields its version knows, and can never
+                                            # write past what we allocated.
+                                            props = (ctypes.c_ubyte * 1024)()
+                                            ctypes.c_uint.from_buffer(props, 0).value = 0x1  # ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES
+                                            if libze.zeDeviceGetProperties(ctypes.c_void_p(dev), ctypes.byref(props)) != 0:
+                                                continue
+                                            # ZE_DEVICE_TYPE_GPU == 1. An NPU (Core Ultra and
+                                            # newer) publishes its own Level Zero driver and
+                                            # would otherwise be counted as an XPU.
+                                            if ctypes.c_uint.from_buffer(props, ptr_size * 2).value == 1:
+                                                xpu_device_count += 1
+                except (OSError, AttributeError, ValueError):
                     pass
 
-                # 2) sycl-ls detection
+                # 2) sycl-ls detection — only reached when the loader itself could not be
+                # dlopen'd. torch xpu runs on Level Zero, so an OpenCL-only line is not a
+                # usable device: both the underscore ('level_zero:gpu', 2024+) and the
+                # hyphen ('Intel(R) Level-Zero', older) spellings count, nothing else does.
                 if xpu_device_count == 0:
+                    sycl_out = ''
                     if os.name == 'posix' and has_cmd('sycl-ls'):
-                        out = try_cmd('sycl-ls')
-                        if out:
-                            gpu_lines = [l for l in out.splitlines() if 'gpu' in l.lower()]
-                            if gpu_lines and xpu_device_count == 0:
-                                xpu_device_count = len(gpu_lines)
+                        sycl_out = try_cmd('sycl-ls')
                     elif os.name == 'nt':
                         oneapi_root = os.environ.get('ONEAPI_ROOT', '')
                         sycl_ls = os.path.join(oneapi_root, 'bin', 'sycl-ls') if oneapi_root else ''
                         if sycl_ls and os.path.isfile(sycl_ls):
-                            out = try_cmd(f'"{sycl_ls}"')
-                            if out:
-                                gpu_lines = [l for l in out.splitlines() if 'gpu' in l.lower()]
-                                if gpu_lines and xpu_device_count == 0:
-                                    xpu_device_count = len(gpu_lines)
-                        if xpu_device_count == 0 and has_cmd('sycl-ls'):
-                            out = try_cmd('sycl-ls')
-                            if out:
-                                gpu_lines = [l for l in out.splitlines() if 'gpu' in l.lower()]
-                                if gpu_lines:
-                                    xpu_device_count = len(gpu_lines)
+                            sycl_out = try_cmd(f'"{sycl_ls}"')
+                        if not sycl_out and has_cmd('sycl-ls'):
+                            sycl_out = try_cmd('sycl-ls')
+                    if sycl_out:
+                        gpu_lines = [l for l in sycl_out.splitlines() if 'gpu' in l.lower() and ('level_zero' in l.lower() or 'level-zero' in l.lower())]
+                        if gpu_lines:
+                            xpu_device_count = len(gpu_lines)
 
                 # 3) oneAPI version file
                 if not version:
@@ -1031,28 +1069,54 @@ class DeviceInstaller():
                                         version = lib_version_parse(f.read()) or ''
                                     break
 
-                # Version comparison + tag assignment (unranged by default: accepts anything)
-                if version:
-                    cmp, current, min_tuple, max_tuple = version_classify(version, xpu_version_range)
-                    min_ver = '.'.join(str(p) for p in min_tuple)
-                    max_ver = '.'.join(str(p) for p in max_tuple)
-                    if cmp == -1:
-                        msg = f'XPU oneAPI {version} < min {min_ver}. Please upgrade.'
-                    elif cmp is None:
-                        msg = 'Intel GPU detected but oneAPI version unparseable.'
-                    else:
-                        devices['XPU']['found'] = True
-                        name = devices['XPU']['proc']
-                        tag = devices['XPU']['proc']
-                        if cmp == 1:
-                            msg = f'XPU oneAPI {version} but tested max {max_ver} so using torch default xpu build'
-                elif xpu_device_count > 0:
+                # Tag assignment. The device count decides — it is the same condition
+                # torch.xpu.is_available() answers at runtime. The oneAPI version file
+                # only annotates the note: a stale or absent toolkit must never veto a
+                # working GPU, which is what the old version-first ordering did.
+                if xpu_device_count > 0:
                     devices['XPU']['found'] = True
                     name = devices['XPU']['proc']
                     tag = devices['XPU']['proc']
-                    msg = 'Intel GPU detected via Level Zero/SYCL. oneAPI toolkit version file not found so using torch default xpu build.'
+                    plural = 's' if xpu_device_count > 1 else ''
+                    if version:
+                        cmp, current, min_tuple, max_tuple = version_classify(version, xpu_version_range)
+                        min_ver = '.'.join(str(p) for p in min_tuple)
+                        max_ver = '.'.join(str(p) for p in max_tuple)
+                        if cmp == -1:
+                            msg = f'{xpu_device_count} Intel GPU{plural} via Level Zero. oneAPI {version} < min {min_ver} but using torch default xpu build anyway.'
+                        elif cmp == 1:
+                            msg = f'{xpu_device_count} Intel GPU{plural} via Level Zero. oneAPI {version} but tested max {max_ver} so using torch default xpu build.'
+                        elif cmp is None:
+                            msg = f'{xpu_device_count} Intel GPU{plural} via Level Zero. oneAPI version unparseable so using torch default xpu build.'
+                        else:
+                            msg = f'{xpu_device_count} Intel GPU{plural} via Level Zero, oneAPI {version}.'
+                    else:
+                        msg = f'{xpu_device_count} Intel GPU{plural} via Level Zero. oneAPI toolkit version file not found so using torch default xpu build.'
                 else:
-                    msg = 'Intel GPU detected but oneAPI Base Toolkit not installed.'
+                    # Hardware is on the bus but nothing usable answered. Name the missing
+                    # layer instead of tagging xpu: wheels would install and then die in
+                    # engine.to(device) with 'No XPU devices are available'.
+                    kmd = ''
+                    for node in glob('/dev/dri/renderD*'):
+                        sysfs = os.path.join('/sys/class/drm', os.path.basename(node), 'device')
+                        try:
+                            with open(os.path.join(sysfs, 'vendor')) as f:
+                                if f.read().strip() != '0x8086':
+                                    continue
+                        except OSError:
+                            continue
+                        kmd = os.path.basename(os.path.realpath(os.path.join(sysfs, 'driver')))
+                        break
+                    if os.name == 'nt':
+                        msg = 'Intel GPU on PCI but no Level Zero device. Update the Intel graphics driver, then re-run. Falling back to CPU.'
+                    elif not glob('/dev/dri/renderD*'):
+                        msg = 'Intel GPU on PCI but no render node. Check that i915 or xe is loaded and that this user is in the render group. Falling back to CPU.'
+                    elif not kmd:
+                        msg = 'Intel GPU on PCI but its render node is not bound to a driver. Falling back to CPU.'
+                    elif has_xpu():
+                        msg = f'Intel GPU bound to {kmd} and visible to SYCL/OpenCL but no Level Zero device. Install intel-level-zero-gpu, then re-run. Falling back to CPU.'
+                    else:
+                        msg = f'Intel GPU bound to {kmd} but no Level Zero user-mode driver. Install intel-level-zero-gpu and intel-opencl-icd, then re-run. Falling back to CPU.'
 
                 # 4) PyTorch last-resort fallback
                 if not devices['XPU']['found']:
@@ -1081,6 +1145,21 @@ class DeviceInstaller():
             if tag is None:
                 name = devices['CPU']['proc']
                 tag = devices['CPU']['proc']
+                # an empty note here is a silent fallback and unreadable in a log: it
+                # cannot be told apart from a deliberate cpu box. Record what was seen
+                # on the bus so the next log line says which gate was missed.
+                if not msg:
+                    seen = []
+                    if has_nvidia_gpu_pci():
+                        seen.append('NVIDIA')
+                    if has_amd_gpu_pci():
+                        seen.append('AMD')
+                    if has_intel_gpu_pci():
+                        seen.append('Intel')
+                    if seen:
+                        msg = f"No GPU backend matched. {' + '.join(seen)} GPU on PCI but its runtime did not answer. Falling back to CPU."
+                    else:
+                        msg = 'No GPU found on the PCI bus. Falling back to CPU.'
 
         name, tag, msg = (v.strip() if isinstance(v, str) else v for v in (name, tag, msg))
         return (name, tag, msg)
