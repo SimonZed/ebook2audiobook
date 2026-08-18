@@ -940,6 +940,7 @@ class DeviceInstaller():
                 version = ''
                 msg = ''
                 xpu_device_count = 0
+                ze_status = 'no-loader'
 
                 # 1) Level Zero / SYCL runtime detection via ctypes (primary)
                 try:
@@ -980,17 +981,23 @@ class DeviceInstaller():
                                 continue
 
                     if libze:
+                        ze_status = 'no-init'
                         # argtypes are mandatory here: without them ctypes marshals a
                         # handle taken out of the array as a C int and truncates the
                         # top 32 bits of the pointer.
                         libze.zeDriverGet.argtypes = [ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_void_p)]
                         libze.zeDeviceGet.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_void_p)]
                         libze.zeDeviceGetProperties.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-                        if libze.zeInit(ctypes.c_uint(0)) == 0:
+                        rc = libze.zeInit(ctypes.c_uint(0))
+                        if rc != 0:
+                            ze_status = f'init-failed 0x{rc & 0xffffffff:x}'
+                        else:
+                            ze_status = 'no-driver'
                             driver_count = ctypes.c_uint(0)
                             if libze.zeDriverGet(ctypes.byref(driver_count), None) == 0 and driver_count.value > 0:
                                 drivers = (ctypes.c_void_p * driver_count.value)()
                                 if libze.zeDriverGet(ctypes.byref(driver_count), drivers) == 0:
+                                    ze_status = 'no-device'
                                     # ze_device_properties_t starts with {stype, pNext, type}.
                                     # stype is 4 bytes padded up to pointer alignment, so
                                     # 'type' sits two pointer widths in on any ABI we ship on.
@@ -1009,18 +1016,27 @@ class DeviceInstaller():
                                         for dev in ze_devices:
                                             if not dev:
                                                 continue
-                                            # oversized zeroed buffer: the loader fills only
-                                            # the fields its version knows, and can never
-                                            # write past what we allocated.
+                                            # the device type filter is a REFINEMENT, not a gate:
+                                            # a device the loader enumerated is a device. If the
+                                            # properties query fails for any reason the device is
+                                            # still counted — worst case an NPU inflates the count
+                                            # on a box that already passed the Intel GPU PCI scan.
+                                            # Skipping on failure turned every properties error
+                                            # into a phantom 'no driver installed'.
                                             props = (ctypes.c_ubyte * 1024)()
-                                            ctypes.c_uint.from_buffer(props, 0).value = 0x1  # ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES
+                                            # ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES == 0x3.
+                                            # 0x1 is ZE_STRUCTURE_TYPE_DRIVER_PROPERTIES and the
+                                            # Intel driver rejects the call outright when it is
+                                            # passed here.
+                                            ctypes.c_uint.from_buffer(props, 0).value = 0x3
                                             if libze.zeDeviceGetProperties(ctypes.c_void_p(dev), ctypes.byref(props)) != 0:
+                                                xpu_device_count += 1
+                                                ze_status = 'ok-unverified'
                                                 continue
-                                            # ZE_DEVICE_TYPE_GPU == 1. An NPU (Core Ultra and
-                                            # newer) publishes its own Level Zero driver and
-                                            # would otherwise be counted as an XPU.
+                                            # ZE_DEVICE_TYPE_GPU == 1, ZE_DEVICE_TYPE_VPU == 5.
                                             if ctypes.c_uint.from_buffer(props, ptr_size * 2).value == 1:
                                                 xpu_device_count += 1
+                                                ze_status = 'ok'
                 except (OSError, AttributeError, ValueError):
                     pass
 
@@ -1108,15 +1124,21 @@ class DeviceInstaller():
                         kmd = os.path.basename(os.path.realpath(os.path.join(sysfs, 'driver')))
                         break
                     if os.name == 'nt':
-                        msg = 'Intel GPU on PCI but no Level Zero device. Update the Intel graphics driver, then re-run. Falling back to CPU.'
+                        msg = f'Intel GPU on PCI but no Level Zero GPU device ({ze_status}). Update the Intel graphics driver, then re-run. Falling back to CPU.'
                     elif not glob('/dev/dri/renderD*'):
                         msg = 'Intel GPU on PCI but no render node. Check that i915 or xe is loaded and that this user is in the render group. Falling back to CPU.'
                     elif not kmd:
                         msg = 'Intel GPU on PCI but its render node is not bound to a driver. Falling back to CPU.'
+                    elif ze_status == 'no-loader':
+                        msg = f'Intel GPU bound to {kmd} but no Level Zero loader (libze_loader.so.1). Install level-zero and intel-level-zero-gpu, then re-run. Falling back to CPU.'
+                    elif ze_status.startswith('init-failed'):
+                        msg = f'Intel GPU bound to {kmd}, Level Zero loader present but zeInit {ze_status[len("init-failed "):]}. Check /dev/dri permissions (render group) and that intel-level-zero-gpu is installed. Falling back to CPU.'
+                    elif ze_status == 'no-driver':
+                        msg = f'Intel GPU bound to {kmd}, Level Zero initialised but exposes no driver. intel-level-zero-gpu is missing or does not support {kmd}. Falling back to CPU.'
                     elif has_xpu():
-                        msg = f'Intel GPU bound to {kmd} and visible to SYCL/OpenCL but no Level Zero device. Install intel-level-zero-gpu, then re-run. Falling back to CPU.'
+                        msg = f'Intel GPU bound to {kmd} and visible to SYCL/OpenCL but Level Zero reports no device. Install or update intel-level-zero-gpu, then re-run. Falling back to CPU.'
                     else:
-                        msg = f'Intel GPU bound to {kmd} but no Level Zero user-mode driver. Install intel-level-zero-gpu and intel-opencl-icd, then re-run. Falling back to CPU.'
+                        msg = f'Intel GPU bound to {kmd} but Level Zero reports no device ({ze_status}). Install intel-level-zero-gpu and intel-opencl-icd, then re-run. Falling back to CPU.'
 
                 # 4) PyTorch last-resort fallback
                 if not devices['XPU']['found']:
