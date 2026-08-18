@@ -1784,7 +1784,7 @@ class DeviceInstaller():
                                     try:
                                         subprocess.check_call([sys.executable, '-c', 'from torchcodec.decoders import AudioDecoder'])
                                     except subprocess.CalledProcessError:
-                                        error = f'torchcodec {torchcodec_version_matrix} does not load against torch {torch_version_matrix}. Check if ffmpeg is installed as ahared and its path registered in your OS lib path.'
+                                        error = 'torchcodec is installed but cannot be imported. Please check the log and check if ffmpeg is installed as ahared and its path registered in your OS lib path.'
                                         print(error)
                                         return 1
                                 else:
