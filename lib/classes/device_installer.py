@@ -952,17 +952,18 @@ class DeviceInstaller():
                         oneapi_root = os.environ.get('ONEAPI_ROOT', '')
                         if oneapi_root:
                             candidates.insert(0, os.path.join(oneapi_root, 'bin', 'ze_loader.dll'))
-                        for lib_name in candidates:
-                            try:
-                                libze = ctypes.CDLL(lib_name)
-                                break
-                            except OSError:
-                                continue
                     else:
-                        candidates = ['libze_loader.so', 'libze_loader.so.1']
+                        # versioned runtime soname FIRST. 'libze_loader.so' without the
+                        # version is the devel symlink; on a rolling distro it can point
+                        # at a different build than the runtime object, and loading that
+                        # one makes zeInit fail version negotiation (0x78000002
+                        # ZE_RESULT_ERROR_UNSUPPORTED_VERSION) on a machine whose GPU
+                        # stack is otherwise fine.
+                        candidates = ['libze_loader.so.1', 'libze_loader.so']
                         ze_lib_dirs = [
                             '/usr/lib/x86_64-linux-gnu',
                             '/usr/lib64',
+                            '/usr/lib',
                             '/opt/intel/oneapi/lib',
                         ]
                         for d in ze_lib_dirs:
@@ -973,70 +974,75 @@ class DeviceInstaller():
                                             candidates.append(os.path.join(d, f))
                                 except OSError:
                                     pass
-                        for lib_name in candidates:
-                            try:
-                                libze = ctypes.CDLL(lib_name)
-                                break
-                            except OSError:
-                                continue
 
-                    if libze:
-                        ze_status = 'no-init'
-                        # argtypes are mandatory here: without them ctypes marshals a
-                        # handle taken out of the array as a C int and truncates the
-                        # top 32 bits of the pointer.
-                        libze.zeDriverGet.argtypes = [ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_void_p)]
-                        libze.zeDeviceGet.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_void_p)]
-                        libze.zeDeviceGetProperties.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-                        rc = libze.zeInit(ctypes.c_uint(0))
+                    # a loader that dlopens is not a loader that works. Only zeInit
+                    # returning success ends the search — otherwise fall through to the
+                    # next candidate and keep the last failure for the note.
+                    for lib_name in candidates:
+                        try:
+                            libze = ctypes.CDLL(lib_name)
+                        except OSError:
+                            continue
+                        try:
+                            # argtypes are mandatory here: without them ctypes marshals a
+                            # handle taken out of the array as a C int and truncates the
+                            # top 32 bits of the pointer.
+                            libze.zeDriverGet.argtypes = [ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_void_p)]
+                            libze.zeDeviceGet.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_void_p)]
+                            libze.zeDeviceGetProperties.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+                            rc = libze.zeInit(ctypes.c_uint(0))
+                        except (AttributeError, ValueError):
+                            ze_status = 'not-a-loader'
+                            continue
                         if rc != 0:
                             ze_status = f'init-failed 0x{rc & 0xffffffff:x}'
-                        else:
-                            ze_status = 'no-driver'
-                            driver_count = ctypes.c_uint(0)
-                            if libze.zeDriverGet(ctypes.byref(driver_count), None) == 0 and driver_count.value > 0:
-                                drivers = (ctypes.c_void_p * driver_count.value)()
-                                if libze.zeDriverGet(ctypes.byref(driver_count), drivers) == 0:
-                                    ze_status = 'no-device'
-                                    # ze_device_properties_t starts with {stype, pNext, type}.
-                                    # stype is 4 bytes padded up to pointer alignment, so
-                                    # 'type' sits two pointer widths in on any ABI we ship on.
-                                    ptr_size = ctypes.sizeof(ctypes.c_void_p)
-                                    for drv in drivers:
-                                        if not drv:
+                            continue
+                        ze_status = 'no-driver'
+                        driver_count = ctypes.c_uint(0)
+                        if libze.zeDriverGet(ctypes.byref(driver_count), None) == 0 and driver_count.value > 0:
+                            drivers = (ctypes.c_void_p * driver_count.value)()
+                            if libze.zeDriverGet(ctypes.byref(driver_count), drivers) == 0:
+                                ze_status = 'no-device'
+                                # ze_device_properties_t starts with {stype, pNext, type}.
+                                # stype is 4 bytes padded up to pointer alignment, so
+                                # 'type' sits two pointer widths in on any ABI we ship on.
+                                ptr_size = ctypes.sizeof(ctypes.c_void_p)
+                                for drv in drivers:
+                                    if not drv:
+                                        continue
+                                    device_count = ctypes.c_uint(0)
+                                    if libze.zeDeviceGet(ctypes.c_void_p(drv), ctypes.byref(device_count), None) != 0:
+                                        continue
+                                    if device_count.value == 0:
+                                        continue
+                                    ze_devices = (ctypes.c_void_p * device_count.value)()
+                                    if libze.zeDeviceGet(ctypes.c_void_p(drv), ctypes.byref(device_count), ze_devices) != 0:
+                                        continue
+                                    for dev in ze_devices:
+                                        if not dev:
                                             continue
-                                        device_count = ctypes.c_uint(0)
-                                        if libze.zeDeviceGet(ctypes.c_void_p(drv), ctypes.byref(device_count), None) != 0:
+                                        # the device type filter is a REFINEMENT, not a gate:
+                                        # a device the loader enumerated is a device. If the
+                                        # properties query fails for any reason the device is
+                                        # still counted — worst case an NPU inflates the count
+                                        # on a box that already passed the Intel GPU PCI scan.
+                                        # Skipping on failure turned every properties error
+                                        # into a phantom 'no driver installed'.
+                                        props = (ctypes.c_ubyte * 1024)()
+                                        # ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES == 0x3.
+                                        # 0x1 is ZE_STRUCTURE_TYPE_DRIVER_PROPERTIES and the
+                                        # Intel driver rejects the call outright when it is
+                                        # passed here.
+                                        ctypes.c_uint.from_buffer(props, 0).value = 0x3
+                                        if libze.zeDeviceGetProperties(ctypes.c_void_p(dev), ctypes.byref(props)) != 0:
+                                            xpu_device_count += 1
+                                            ze_status = 'ok-unverified'
                                             continue
-                                        if device_count.value == 0:
-                                            continue
-                                        ze_devices = (ctypes.c_void_p * device_count.value)()
-                                        if libze.zeDeviceGet(ctypes.c_void_p(drv), ctypes.byref(device_count), ze_devices) != 0:
-                                            continue
-                                        for dev in ze_devices:
-                                            if not dev:
-                                                continue
-                                            # the device type filter is a REFINEMENT, not a gate:
-                                            # a device the loader enumerated is a device. If the
-                                            # properties query fails for any reason the device is
-                                            # still counted — worst case an NPU inflates the count
-                                            # on a box that already passed the Intel GPU PCI scan.
-                                            # Skipping on failure turned every properties error
-                                            # into a phantom 'no driver installed'.
-                                            props = (ctypes.c_ubyte * 1024)()
-                                            # ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES == 0x3.
-                                            # 0x1 is ZE_STRUCTURE_TYPE_DRIVER_PROPERTIES and the
-                                            # Intel driver rejects the call outright when it is
-                                            # passed here.
-                                            ctypes.c_uint.from_buffer(props, 0).value = 0x3
-                                            if libze.zeDeviceGetProperties(ctypes.c_void_p(dev), ctypes.byref(props)) != 0:
-                                                xpu_device_count += 1
-                                                ze_status = 'ok-unverified'
-                                                continue
-                                            # ZE_DEVICE_TYPE_GPU == 1, ZE_DEVICE_TYPE_VPU == 5.
-                                            if ctypes.c_uint.from_buffer(props, ptr_size * 2).value == 1:
-                                                xpu_device_count += 1
-                                                ze_status = 'ok'
+                                        # ZE_DEVICE_TYPE_GPU == 1, ZE_DEVICE_TYPE_VPU == 5.
+                                        if ctypes.c_uint.from_buffer(props, ptr_size * 2).value == 1:
+                                            xpu_device_count += 1
+                                            ze_status = 'ok'
+                        break
                 except (OSError, AttributeError, ValueError):
                     pass
 
