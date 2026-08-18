@@ -1777,9 +1777,10 @@ class DeviceInstaller():
                                     if device_info['name'] == devices['XPU']['proc']:
                                         msg = 'Installing torchcodec and the Intel XPU plugin…'
                                         print(msg)
-                                        rc = subprocess.call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', 'torchcodec-xpu', '--extra-index-url', f'{default_pytorch_url}/xpu'])
-                                    torchcodec_index_url = f'{default_pytorch_url}/{tag_dir}'
-                                    rc = subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', f'torchcodec=={torchcodec_version_matrix}', '--index-url', torchcodec_index_url])
+                                        rc = subprocess.call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', f"torchcodec=={torch_matrix['xpu']['codec']}", 'torchlib-xpu', '--extra-index-url', f'{default_pytorch_url}/xpu'])
+                                    else:
+                                        torchcodec_index_url = f'{default_pytorch_url}/{tag_dir}'
+                                        rc = subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', f'torchcodec=={torchcodec_version_matrix}', '--index-url', torchcodec_index_url])
                                 if rc == 0:
                                     try:
                                         subprocess.check_call([sys.executable, '-c', 'from torchcodec.decoders import AudioDecoder'])
