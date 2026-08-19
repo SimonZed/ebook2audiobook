@@ -3,7 +3,7 @@ ARG PYTHON_VERSION=3.12
 # ============================================================
 # SINGLE STAGE — BUILD + RUNTIME
 # ============================================================
-FROM python:${PYTHON_VERSION}-slim-bookworm
+FROM python:${PYTHON_VERSION}-slim-trixie
 
 ARG APP_VERSION=26.8.7
 ARG DEVICE_TAG=cu130
@@ -31,7 +31,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 WORKDIR /app
 
-# System packages (build + runtime)
+# System packages (build + runtime) including Intel XPU runtimes
 RUN set -eux; \
 	apt-get update; \
 	apt-get install -y --no-install-recommends \
@@ -39,6 +39,7 @@ RUN set -eux; \
 		fontconfig libfontconfig1 libfreetype6 libgl1 libegl1 libopengl0 \
 		libx11-6 libxext6 libxrender1 libxcb1 libxcb-render0 libxcb-shm0 \
 		libxcb-xfixes0 libxcb-cursor0 libgomp1 libsndfile1 libnss3 \
+		libze1 intel-level-zero-gpu intel-opencl-icd ocl-icd-libopencl1 \
 		${DOCKER_PROGRAMS_STR} tesseract-ocr tesseract-ocr-eng; \
 	rm -rf /var/lib/apt/lists/*
 
