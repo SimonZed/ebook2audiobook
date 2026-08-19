@@ -6,8 +6,8 @@ ARG PYTHON_VERSION=3.12
 FROM python:${PYTHON_VERSION}-slim-trixie
 
 ARG APP_VERSION=26.8.7
-ARG DEVICE_TAG=xpu
-ARG DOCKER_DEVICE_STR='{"name": "xpu", "os": "manylinux_2_28", "arch": "x86_64", "pyvenv": [3, 12], "tag": "xpu", "note": "default device"}'
+ARG DEVICE_TAG=cu130
+ARG DOCKER_DEVICE_STR='{"name": "cuda", "os": "manylinux_2_28", "arch": "x86_64", "pyvenv": [3, 12], "tag": "cu130", "note": "default device"}'
 ARG DOCKER_PROGRAMS_STR="curl ffmpeg mediainfo nodejs npm espeak-ng sox tesseract-ocr"
 ARG CALIBRE_INSTALLER_URL="https://download.calibre-ebook.com/linux-installer.sh"
 ARG ISO3_LANG=eng
@@ -31,13 +31,17 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 WORKDIR /app
 
-# Enable Debian contrib and non-free repositories, then install system packages + Intel XPU runtimes
+# System packages (build + runtime) with Intel GPU repository and XPU runtimes
 RUN set -eux; \
 	if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
 		sed -i 's/Components: main/Components: main contrib non-free non-free-firmware/g' /etc/apt/sources.list.d/debian.sources; \
 	else \
 		sed -i 's/main/main contrib non-free non-free-firmware/g' /etc/apt/sources.list; \
 	fi; \
+	apt-get update; \
+	apt-get install -y --no-install-recommends gpg wget; \
+	wget -O- https://repositories.intel.com/gpu/intel-graphics.key | gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg; \
+	echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/debian bookworm main" | tee /etc/apt/sources.list.d/intel-gpu.list; \
 	apt-get update; \
 	apt-get install -y --no-install-recommends \
 		gcc g++ make pkg-config cmake curl wget git bash xz-utils python3-dev \
