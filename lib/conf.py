@@ -167,6 +167,7 @@ os.environ['TESSDATA_PREFIX'] = f'{models_dir}/tessdata'
 os.environ['STANZA_RESOURCES_DIR'] = os.path.join(models_dir, 'stanza')
 os.environ['ARGOS_TRANSLATE_PACKAGE_PATH'] = os.path.join(models_dir, 'argostranslate')
 os.environ['TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD'] = '1'
+os.environ['TORCHCODEC_DEVICE_BACKEND_AUTOLOAD'] = '0';
 os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 os.environ['PYTORCH_HIP_ALLOC_CONF'] = 'expandable_segments:True'
