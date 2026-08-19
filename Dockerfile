@@ -45,7 +45,7 @@ RUN set -eux; \
 		fontconfig libfontconfig1 libfreetype6 libgl1 libegl1 libopengl0 \
 		libx11-6 libxext6 libxrender1 libxcb1 libxcb-render0 libxcb-shm0 \
 		libxcb-xfixes0 libxcb-cursor0 libgomp1 libsndfile1 libnss3 \
-		libze1 intel-level-zero-gpu intel-opencl-icd ocl-icd-libopencl1 \
+		libze1 libze-intel-gpu1 intel-opencl-icd ocl-icd-libopencl1 \
 		${DOCKER_PROGRAMS_STR} tesseract-ocr tesseract-ocr-eng; \
 	rm -f /etc/apt/sources.list.d/bookworm.list; \
 	rm -rf /var/lib/apt/lists/*
