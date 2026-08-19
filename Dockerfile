@@ -51,12 +51,12 @@ RUN set -eux; \
 RUN python3 -m pip install --no-cache-dir --upgrade pip 'setuptools<82' wheel
 
 # Rust toolchain
-RUN bash -o pipefail -c '\
-	if [ "${INSTALL_RUST]" = "1" ]; then \
+RUN set -eux; \
+	if [ "${INSTALL_RUST}" = "1" ]; then \
 		curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable; \
 	else \
 		echo "Skipping Rust toolchain"; \
-	fi'
+	fi
 
 # Calibre (CLI)
 RUN set -eux; \
