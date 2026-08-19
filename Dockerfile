@@ -3,11 +3,11 @@ ARG PYTHON_VERSION=3.12
 # ============================================================
 # SINGLE STAGE — BUILD + RUNTIME
 # ============================================================
-FROM python:${PYTHON_VERSION}-slim-trixie
+FROM python:${PYTHON_VERSION}-slim-bookworm
 
 ARG APP_VERSION=26.8.7
-ARG DEVICE_TAG=xpu
-ARG DOCKER_DEVICE_STR='{"name": "xpu", "os": "manylinux_2_28", "arch": "x86_64", "pyvenv": [3, 12], "tag": "xpu", "note": "default device"}'
+ARG DEVICE_TAG=cu130
+ARG DOCKER_DEVICE_STR='{"name": "cuda", "os": "manylinux_2_28", "arch": "x86_64", "pyvenv": [3, 12], "tag": "cu130", "note": "default device"}'
 ARG DOCKER_PROGRAMS_STR="curl ffmpeg mediainfo nodejs npm espeak-ng sox tesseract-ocr"
 ARG CALIBRE_INSTALLER_URL="https://download.calibre-ebook.com/linux-installer.sh"
 ARG ISO3_LANG=eng
@@ -31,23 +31,21 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 WORKDIR /app
 
-# Enable Debian contrib/non-free and temporarily add Bookworm repo for Intel XPU runtimes
+# Enable Debian contrib, non-free, and non-free-firmware repositories, then install system packages + Intel XPU runtimes
 RUN set -eux; \
 	if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
 		sed -i 's/Components: main/Components: main contrib non-free non-free-firmware/g' /etc/apt/sources.list.d/debian.sources; \
 	else \
 		sed -i 's/main/main contrib non-free non-free-firmware/g' /etc/apt/sources.list; \
 	fi; \
-	echo "deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list.d/bookworm.list; \
 	apt-get update; \
 	apt-get install -y --no-install-recommends \
 		gcc g++ make pkg-config cmake curl wget git bash xz-utils python3-dev \
 		fontconfig libfontconfig1 libfreetype6 libgl1 libegl1 libopengl0 \
 		libx11-6 libxext6 libxrender1 libxcb1 libxcb-render0 libxcb-shm0 \
 		libxcb-xfixes0 libxcb-cursor0 libgomp1 libsndfile1 libnss3 \
-		libze1 libze-intel-gpu1 intel-opencl-icd ocl-icd-libopencl1 \
+		libze1 intel-opencl-icd ocl-icd-libopencl1 \
 		${DOCKER_PROGRAMS_STR} tesseract-ocr tesseract-ocr-eng; \
-	rm -f /etc/apt/sources.list.d/bookworm.list; \
 	rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m pip install --no-cache-dir --upgrade pip 'setuptools<82' wheel
