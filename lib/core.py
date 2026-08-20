@@ -3830,9 +3830,25 @@ def convert_ebook(args:dict)->tuple:
                             session['device'] = devices['CPU']['proc']
                             msg += f'ROCM not supported by the Torch installed!<br/>Read {default_gpu_wiki}<br/>Switching to CPU'
                     elif session['device'] == devices['XPU']['proc']:
+                        # devices['XPU']['found'] is a static capability flag: on an
+                        # image built for xpu it stays True even when no Intel GPU is
+                        # visible at runtime (Level Zero driver absent, /dev/dri not
+                        # passed to the container). Unlike CUDA that never trips the
+                        # branch below, so the failure surfaces as a crash inside
+                        # TTSManager() instead of a switch to CPU. Ask torch directly.
+                        xpu_error = None
                         if not devices['XPU']['found']:
+                            xpu_error = 'XPU not supported by the Torch installed!'
+                        else:
+                            try:
+                                import torch
+                                if not (hasattr(torch, 'xpu') and torch.xpu.is_available()):
+                                    xpu_error = 'XPU not available: no Intel GPU visible to Torch!'
+                            except Exception as e:
+                                xpu_error = f'XPU not available: runtime probe failed ({e!r})'
+                        if xpu_error is not None:
                             session['device'] = devices['CPU']['proc']
-                            msg += f"XPU not supported by the Torch installed!<br/>Read {default_gpu_wiki}<br/>Switching to CPU"
+                            msg += f'{xpu_error}<br/>Read {default_gpu_wiki}<br/>Switching to CPU'
                     if session['device'] == devices['CPU']['proc']:
                         os.environ['OMP_NUM_THREADS'] = '4'
                     vram_dict = VRAMDetector().detect_vram(session['device'], session['script_mode'])
