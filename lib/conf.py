@@ -175,6 +175,12 @@ os.environ['CUDA_MODULE_LOADING'] = 'LAZY'
 os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
 os.environ['CUDA_CACHE_MAXSIZE'] = '2147483648'
 os.environ['ONEDNN_DEFAULT_FPMATH_MODE'] = 'STRICT'
+# oneDNN keeps one JIT-compiled primitive per distinct problem descriptor, 1024 of
+# them by default. Every sentence produces a different conv width (iw8352, iw50112…)
+# so on the XPU/SYCL backend the cache is nearly all misses and just accumulates
+# kernel binaries in device memory until the JIT can no longer create a primitive.
+# 64 keeps the shapes that do repeat and drops the long tail.
+os.environ['ONEDNN_PRIMITIVE_CACHE_CAPACITY'] = '64'
 os.environ['SUNO_OFFLOAD_CPU'] = 'FALSE'
 os.environ['SUNO_USE_SMALL_MODELS'] = 'FALSE'
 os.environ['TORCH_CPP_LOG_LEVEL'] = 'ERROR'
@@ -195,6 +201,7 @@ if DEVICE_SYSTEM == systems['WINDOWS']:
 max_upload_size = '6GB' # MB or GB
 tmp_expire = 60 # days
 max_ebook_textarea_length = 1024 # chars
+default_vram_flush_ratio = 0.85 # flush the device cache when used/total VRAM crosses this ratio (0 disables the check)
 
 # ---------------------------------------------------------------------
 # Interface configuration
