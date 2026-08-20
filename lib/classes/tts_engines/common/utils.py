@@ -126,9 +126,16 @@ class TTSUtils:
             torch.cuda.ipc_collect()
             torch.cuda.synchronize()
             torch.cuda.empty_cache()
-        if hasattr(torch, 'xpu') and torch.xpu.is_available():
-            torch.xpu.synchronize()
-            torch.xpu.empty_cache()
+        try:
+            if hasattr(torch, 'xpu') and torch.xpu.is_available():
+                torch.xpu.synchronize()
+                torch.xpu.empty_cache()
+        except Exception:
+            # torch.xpu.is_available() is not exception-safe: on an old Level Zero
+            # loader it raises out of ctypes instead of returning False. A memory
+            # flush must never be the thing that kills a conversion, and this runs
+            # on every cleanup, so it stays silent like the malloc_trim block above.
+            pass
 
     def _try_dml(self, engine:Any, checkpoint_path:str)->None:
         try:
@@ -199,7 +206,17 @@ class TTSUtils:
         #torch.manual_seed(seed)
         has_cuda = hasattr(torch, 'cuda') and torch.cuda.is_available()
         has_mps = hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()
-        has_xpu = hasattr(torch, 'xpu') and torch.xpu.is_available()
+        # torch >= 2.13 enumerates XPU through Level Zero Sysman (pyzes -> ctypes
+        # zesInit). A loader older than the Sysman-init split has no zesInit symbol
+        # (Debian bookworm ships level-zero 1.8.12), so this probe raises
+        # AttributeError out of ctypes instead of returning False, and takes
+        # TTSManager -> convert_chapters2audio() down with it.
+        try:
+            has_xpu = hasattr(torch, 'xpu') and torch.xpu.is_available()
+        except Exception as e:
+            has_xpu = False
+            error = f'[_apply_gpu_policy] XPU probe failed ({e!r}), treating as no XPU'
+            print(error)
         is_rocm = bool(getattr(torch.version, 'hip', None))
         is_cuda = bool(getattr(torch.version, 'cuda', None)) and not is_rocm
         quality_mode = bool(using_gpu and enough_vram)
