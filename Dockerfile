@@ -61,17 +61,16 @@ RUN set -eux; \
 		${DOCKER_PROGRAMS_STR} tesseract-ocr tesseract-ocr-eng; \
 	rm -rf /var/lib/apt/lists/*
 
-# Intel XPU user-mode driver — xpu builds only.
+# Intel XPU user-mode driver — runs only when DEVICE_TAG=xpu.
 # libze1        Debian trixie, Level Zero loader 1.20.6 (exports zesInit)
 # libze-intel-gpu1  Intel NEO, the actual L0 driver (was intel-level-zero-gpu)
 # intel-igc-*   SPIR-V -> ISA JIT the driver calls at first kernel launch
 # libigdgmm12   Intel graphics memory manager
 # `apt-get install ./x.deb` (not dpkg -i) so Debian resolves libnl/libva/etc.
 RUN set -eux; \
-	case "${DOCKER_DEVICE_STR}" in \
-		*xpu*) : ;; \
-		*) echo 'Not an XPU build — skipping Intel GPU runtime'; exit 0 ;; \
-	esac; \
+	if [ "${DEVICE_TAG}" != "xpu" ]; then \
+		echo "DEVICE_TAG='${DEVICE_TAG}' — skipping Intel GPU runtime"; exit 0; \
+	fi; \
 	mkdir -p /tmp/neo; cd /tmp/neo; \
 	curl -fsSLO "https://github.com/intel/intel-graphics-compiler/releases/download/${IGC_TAG}/intel-igc-core-2_${IGC_BUILD}_amd64.deb"; \
 	curl -fsSLO "https://github.com/intel/intel-graphics-compiler/releases/download/${IGC_TAG}/intel-igc-opencl-2_${IGC_BUILD}_amd64.deb"; \
