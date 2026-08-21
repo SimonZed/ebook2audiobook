@@ -8,7 +8,7 @@ ARG PYTHON_VERSION=3.12
 # and its Level Zero loader (libze1 1.8.12) predates zesInit.
 FROM python:${PYTHON_VERSION}-slim-trixie
 
-ARG APP_VERSION=26.8.20
+ARG APP_VERSION=26.8.7
 ARG DEVICE_TAG=cu130
 ARG DOCKER_DEVICE_STR='{"name": "cuda", "os": "manylinux_2_28", "arch": "x86_64", "pyvenv": [3, 12], "tag": "cu130", "note": "default device"}'
 ARG DOCKER_PROGRAMS_STR="curl ffmpeg mediainfo nodejs npm espeak-ng sox tesseract-ocr"
@@ -24,6 +24,7 @@ ARG NEO_VERSION=26.18.38308.1
 ARG IGC_TAG=v2.34.4
 ARG IGC_BUILD=2.34.4+21428
 ARG GMM_VERSION=22.10.0
+ARG ZE_LOADER_MIN=1.32.0-1
 
 LABEL org.opencontainers.image.title="ebook2audiobook" \
 	org.opencontainers.image.description="Generate audiobooks from e-books, voice cloning & 1158 languages!" \
@@ -62,7 +63,10 @@ RUN set -eux; \
 	rm -rf /var/lib/apt/lists/*
 
 # Intel XPU user-mode driver — runs only when DEVICE_TAG=xpu.
-# libze1        Debian trixie, Level Zero loader 1.20.6 (exports zesInit)
+# libze1        Level Zero loader, from SID not trixie: trixie's 1.20.6 segfaults
+#               inside torch's UR level-zero adapter at first _lazy_init (device
+#               enumeration still works, so it looks healthy until real use).
+#               Pinned so only this one package comes from unstable.
 # libze-intel-gpu1  Intel NEO, the actual L0 driver (was intel-level-zero-gpu)
 # intel-igc-*   SPIR-V -> ISA JIT the driver calls at first kernel launch
 # libigdgmm12   Intel graphics memory manager
@@ -76,9 +80,16 @@ RUN set -eux; \
 	curl -fsSLO "https://github.com/intel/intel-graphics-compiler/releases/download/${IGC_TAG}/intel-igc-opencl-2_${IGC_BUILD}_amd64.deb"; \
 	curl -fsSLO "https://github.com/intel/compute-runtime/releases/download/${NEO_VERSION}/libigdgmm12_${GMM_VERSION}_amd64.deb"; \
 	curl -fsSLO "https://github.com/intel/compute-runtime/releases/download/${NEO_VERSION}/libze-intel-gpu1_${NEO_VERSION}-0_amd64.deb"; \
+	echo 'deb http://deb.debian.org/debian sid main' > /etc/apt/sources.list.d/sid.list; \
+	printf 'Package: *\nPin: release a=unstable\nPin-Priority: 100\n\nPackage: libze1\nPin: release a=unstable\nPin-Priority: 990\n' > /etc/apt/preferences.d/level-zero.pref; \
 	apt-get update; \
 	apt-get install -y --no-install-recommends libze1 ./*.deb; \
+	rm -f /etc/apt/sources.list.d/sid.list; \
 	cd /; rm -rf /tmp/neo /var/lib/apt/lists/*; \
+	ze_ver="$(dpkg-query -W -f='${Version}' libze1)"; \
+	echo "libze_loader: libze1 ${ze_ver}"; \
+	dpkg --compare-versions "${ze_ver}" ge "${ZE_LOADER_MIN}" \
+		|| { echo "libze1 ${ze_ver} < ${ZE_LOADER_MIN}: the apt pin did not take, this loader segfaults torch's UR adapter at _lazy_init"; exit 1; }; \
 	python3 -c "import ctypes; ctypes.CDLL('libze_loader.so.1').zesInit; print('libze_loader: zesInit present')"
 
 RUN python3 -m pip install --no-cache-dir --upgrade pip 'setuptools<82' wheel
