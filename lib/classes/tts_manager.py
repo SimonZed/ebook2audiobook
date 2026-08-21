@@ -6,6 +6,10 @@ class TTSManager:
 
     def __init__(self, session:Any)->None:
         self.session = session
+        # watermark state: last 5% band reported, plus a one-shot flag so a broken
+        # memory probe says so once instead of silently doing nothing forever
+        self.vram_band = -1
+        self.vram_probe_off = False
         engine_name = session.get("tts_engine")
         if engine_name is None:
             raise ValueError("session['tts_engine'] is missing")
@@ -22,14 +26,15 @@ class TTSManager:
         return self.engine._set_voice(block_voice)
 
     def convert_sentence2audio(self, sentence_file:str, sentence:str, **kwargs)->tuple:
-        result = self.engine.convert(sentence_file, sentence, **kwargs)
-        # Engine-agnostic seam: every engine's per-sentence work funnels through
-        # here. The caching allocator only hands blocks back to the driver on an
-        # explicit empty_cache(), and each sentence allocates a different shape,
-        # so the reserved pool climbs monotonically and never shrinks on its own.
-        # Check the device high-water mark once per sentence and flush through the
-        # engine's existing cleanup_memory() when it crosses default_vram_flush_ratio.
-        if default_vram_flush_ratio > 0:
+        # Engine-agnostic seam: every engine's per-sentence work funnels through here.
+        # Checked BEFORE the engine call, so a flush creates headroom for the sentence
+        # about to be synthesised — checking afterwards leaves the sentence that trips
+        # the limit running with none. Reports every 5% band so growth is visible in
+        # the log even when the limit is never reached, and reports usage again after
+        # a flush so it is obvious whether the flush reclaimed anything at all
+        # (empty_cache() returns allocator blocks; it cannot free oneDNN's JIT
+        # primitive cache or the SYCL program cache).
+        if default_vram_flush_ratio > 0 and not self.vram_probe_off:
             try:
                 import torch
                 backend = None
@@ -37,7 +42,9 @@ class TTSManager:
                     backend = torch.xpu
                 elif self.session['device'] in (devices['CUDA']['proc'], devices['ROCM']['proc'], devices['JETSON']['proc']):
                     backend = torch.cuda
-                if backend is not None:
+                if backend is None:
+                    self.vram_probe_off = True
+                else:
                     if hasattr(backend, 'mem_get_info'):
                         # driver-level truth: counts the oneDNN/SYCL kernel binaries
                         # and scratchpads too, not only what torch itself allocated
@@ -47,11 +54,19 @@ class TTSManager:
                         total_bytes = backend.get_device_properties(0).total_memory
                         used_bytes = backend.memory_reserved()
                     used_ratio = used_bytes / total_bytes if total_bytes > 0 else 0.0
-                    if used_ratio >= default_vram_flush_ratio:
-                        msg = f"convert_sentence2audio() {self.session['device']} at {used_ratio * 100:.1f}% of {total_bytes / 1024 ** 3:.2f}GB, flushing device cache…"
+                    band = int(used_ratio * 20)
+                    if band != self.vram_band:
+                        self.vram_band = band
+                        msg = f"{self.session['device']} memory at {used_ratio * 100:.1f}% of {total_bytes / 1024 ** 3:.2f}GB"
                         print(msg)
+                    if used_ratio >= default_vram_flush_ratio:
                         self.engine.cleanup_memory()
-            except Exception:
-                # a memory probe must never be the thing that kills a conversion
-                pass
-        return result
+                        if hasattr(backend, 'mem_get_info'):
+                            free_bytes, total_bytes = backend.mem_get_info()
+                            msg = f"flushed device cache, now at {(total_bytes - free_bytes) / total_bytes * 100:.1f}%"
+                            print(msg)
+            except Exception as e:
+                self.vram_probe_off = True
+                error = f'convert_sentence2audio() memory watermark disabled: {e!r}'
+                print(error)
+        return self.engine.convert(sentence_file, sentence, **kwargs)

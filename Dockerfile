@@ -17,9 +17,11 @@ ARG ISO3_LANG=eng
 ARG INSTALL_RUST=1
 
 # Intel GPU user-mode stack, only pulled in for the xpu build. Debian trixie has
-# the Level Zero loader (libze1 1.20.6, has zesInit) but no intel-compute-runtime
-# at all, so the L0 driver comes from Intel's release debs. NEO and IGC must be a
-# matched pair — take IGC_TAG/IGC_BUILD from the NEO release page notes.
+# no intel-compute-runtime at all, so the L0 driver, the OpenCL ICD and IGC come
+# from Intel's release debs, and the Level Zero loader comes from sid (trixie's
+# 1.20.6 is too old — see the xpu block). NEO and IGC must be a matched pair: the
+# debs carry an exact pin (intel-igc-* >= 2.34.4, << 2.34.4+~), so take
+# IGC_TAG/IGC_BUILD from the NEO release page notes and change both together.
 ARG NEO_VERSION=26.18.38308.1
 ARG IGC_TAG=v2.34.4
 ARG IGC_BUILD=2.34.4+21428
@@ -70,6 +72,12 @@ RUN set -eux; \
 # libze-intel-gpu1  Intel NEO, the actual L0 driver (was intel-level-zero-gpu)
 # intel-igc-*   SPIR-V -> ISA JIT the driver calls at first kernel launch
 # libigdgmm12   Intel graphics memory manager
+# intel-opencl-icd  NOT optional, and not covered by --device=/dev/dri: that flag
+#               passes kernel device nodes only, while the ICD registration lives
+#               in the image. Without it /etc/OpenCL/vendors is empty, so oneMKL's
+#               DFT sees zero OpenCL platforms and torch.stft (torchaudio mel /
+#               speaker embeddings, xtts and piper alike) dies CL_DEVICE_NOT_FOUND
+#               = "OpenCL error -1". A native distro install always has this.
 # `apt-get install ./x.deb` (not dpkg -i) so Debian resolves libnl/libva/etc.
 RUN set -eux; \
 	if [ "${DEVICE_TAG}" != "xpu" ]; then \
@@ -80,6 +88,8 @@ RUN set -eux; \
 	curl -fsSLO "https://github.com/intel/intel-graphics-compiler/releases/download/${IGC_TAG}/intel-igc-opencl-2_${IGC_BUILD}_amd64.deb"; \
 	curl -fsSLO "https://github.com/intel/compute-runtime/releases/download/${NEO_VERSION}/libigdgmm12_${GMM_VERSION}_amd64.deb"; \
 	curl -fsSLO "https://github.com/intel/compute-runtime/releases/download/${NEO_VERSION}/libze-intel-gpu1_${NEO_VERSION}-0_amd64.deb"; \
+	curl -fsSLO "https://github.com/intel/compute-runtime/releases/download/${NEO_VERSION}/intel-opencl-icd_${NEO_VERSION}-0_amd64.deb"; \
+	curl -fsSLO "https://github.com/intel/compute-runtime/releases/download/${NEO_VERSION}/intel-ocloc_${NEO_VERSION}-0_amd64.deb"; \
 	echo 'deb http://deb.debian.org/debian sid main' > /etc/apt/sources.list.d/sid.list; \
 	printf 'Package: *\nPin: release a=unstable\nPin-Priority: 100\n\nPackage: libze1\nPin: release a=unstable\nPin-Priority: 990\n' > /etc/apt/preferences.d/level-zero.pref; \
 	apt-get update; \
@@ -90,7 +100,10 @@ RUN set -eux; \
 	echo "libze_loader: libze1 ${ze_ver}"; \
 	dpkg --compare-versions "${ze_ver}" ge "${ZE_LOADER_MIN}" \
 		|| { echo "libze1 ${ze_ver} < ${ZE_LOADER_MIN}: the apt pin did not take, this loader segfaults torch's UR adapter at _lazy_init"; exit 1; }; \
-	python3 -c "import ctypes; ctypes.CDLL('libze_loader.so.1').zesInit; print('libze_loader: zesInit present')"
+	python3 -c "import ctypes; ctypes.CDLL('libze_loader.so.1').zesInit; print('libze_loader: zesInit present')"; \
+	[ -n "$(ls -A /etc/OpenCL/vendors/ 2>/dev/null)" ] \
+		|| { echo 'no OpenCL ICD registered: the UR opencl adapter has zero devices and torch.stft fails CL_DEVICE_NOT_FOUND'; exit 1; }; \
+	ls -1 /etc/OpenCL/vendors/
 
 RUN python3 -m pip install --no-cache-dir --upgrade pip 'setuptools<82' wheel
 
