@@ -1887,7 +1887,7 @@ class DeviceInstaller():
                                         print(msg)
                                         rc = subprocess.call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', f'torchcodec=={torchcodec_version_matrix}', f'torchcodec-xpu', 'torchlib-xpu', '--extra-index-url', f'{default_pytorch_url}/xpu'])
                                     else:
-                                        torchcodec_index_url = f'{default_pytorch_url}/{tag_dir}'
+                                        torchcodec_index_url = f'{default_pytorch_url}/cpu' if device_info['name'] == devices['ROCM']['proc'] else f'{default_pytorch_url}/{tag_dir}'
                                         rc = subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', f'torchcodec=={torchcodec_version_matrix}', '--index-url', torchcodec_index_url])
                                 if rc == 0:
                                     try:
