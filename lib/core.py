@@ -1,15 +1,16 @@
-NOTE!!NOTE!!!NOTE!!NOTE!!!NOTE!!NOTE!!!NOTE!!NOTE!!!
-THE WORD "CHAPTER" IN THE CODE DOES NOT MEAN
-IT'S THE REAL CHAPTER OF THE EBOOK SINCE NO STANDARDS
-ARE DEFINING A CHAPTER ON .EPUB FORMAT. THE WORD "BLOCK"
-IS USED TO PRINT IT OUT TO THE TERMINAL, AND "CHAPTER" TO THE CODE
-WHICH IS LESS GENERIC FOR THE DEVELOPERS
+# NOTE!!NOTE!!!NOTE!!NOTE!!!NOTE!!NOTE!!!NOTE!!NOTE!!!
+# THE WORD "CHAPTER" IN THE CODE DOES NOT MEAN
+# IT'S THE REAL CHAPTER OF THE EBOOK SINCE NO STANDARDS
+# ARE DEFINING A CHAPTER ON .EPUB FORMAT. THE WORD "BLOCK"
+# IS USED TO PRINT IT OUT TO THE TERMINAL, AND "CHAPTER" TO THE CODE
+# WHICH IS LESS GENERIC FOR THE DEVELOPERS
 
 import argparse, asyncio, csv, difflib, fnmatch, sqlite3, hashlib, io, json, math, os, pytesseract, gc
 import random, shutil, subprocess, sys, tempfile, threading, time, uvicorn, copy, base64
 import traceback, socket, unicodedata, urllib.request, uuid, zipfile, pymupdf, multiprocessing
 import ebooklib, psutil, requests, stanza, importlib, queue, pykakasi
 import regex as re, gradio as gr
+
 from typing import Any, Generator, Dict
 from PIL import Image, ImageSequence
 from tqdm import tqdm
@@ -38,6 +39,7 @@ from langdetect import detect
 from unidecode import unidecode
 from phonemizer import phonemize
 from pypinyin import pinyin, Style
+
 from lib.classes.subprocess_pipe import SubprocessPipe
 from lib.classes.vram_detector import VRAMDetector
 from lib.classes.voice_extractor import VoiceExtractor
@@ -47,12 +49,13 @@ from lib.classes.argos_translator import ArgosTranslator
 from lib.classes.tts_manager import TTSManager
 from lib.classes.tts_engines.common.audio import get_audiolist_duration, get_audio_duration
 from lib.classes.tts_engines.common.utils import build_vtt_file
+
 from lib import *
 
 #import logging
 #logging.basicConfig(
-#   level=logging.INFO, # DEBUG for more verbosity
-#   format="%(asctime)s [%(levelname)s] %(message)s"
+#    level=logging.INFO, # DEBUG for more verbosity
+#    format="%(asctime)s [%(levelname)s] %(message)s"
 #)
 
 context = None
@@ -61,15 +64,15 @@ active_sessions = None
 progress_bar = None
 
 status_tags = {
-    "OVERRIDE ":   "override ",
-    "DELETION ":   "deletion ",
-    "READY ":      "ready ",
-    "EDIT ":       "edit ",
-    "SKIP ":       "skip ",
-    "SWITCH ":     "switch ",
-    "CONVERTING ": "converting ",
-    "END ":        "end ",
-    "DISCONNECTED ": "disconnected "
+    "OVERRIDE": "override",
+    "DELETION": "deletion",
+    "READY": "ready",
+    "EDIT": "edit",
+    "SKIP": "skip",
+    "SWITCH": "switch",
+    "CONVERTING": "converting",
+    "END": "end",
+    "DISCONNECTED": "disconnected"
 }
 
 ebook_modes = {
@@ -86,8 +89,8 @@ save_session_keys_except = [
 
 file_prefixes = {
     "clone": "__",
-    "saved": "_saved",
-    'current': "_current"
+    "saved": "__saved_",
+    'current': "__current_"
 }
 
 ########### Classes
@@ -98,6 +101,7 @@ class DependencyError(Exception):
         print(message)
         # Automatically handle the exception when it's raised
         self.handle_exception()
+
     def handle_exception(self)->None:
         # Print the full traceback of the exception
         traceback.print_exc()      
@@ -110,6 +114,7 @@ class SessionTracker:
         self.lock = threading.Lock()
         #self.blocks_autosave = AppAutosave()
         #self.blocks_autosave.start()
+
     def start_session(self, session_id:str)->bool:
         with self.lock:
             if session_id not in context.sessions:
@@ -117,6 +122,7 @@ class SessionTracker:
             session = context.get_session(session_id)
             session['status'] = status_tags['READY']
             return True
+
     def end_session(self, session_id:str, socket_hash:str)->None:
         #self.blocks_autosave.unregister(session_id)
         active_sessions.discard(socket_hash)
@@ -128,140 +134,144 @@ class SessionContext:
         self.manager:Manager = Manager()
         self.sessions:DictProxy[str, DictProxy[str, Any]] = self.manager.dict()
         self.cancellation_events = {}
+
     def _recursive_proxy(self, data:Any, manager:SyncManager|None)->Any:
-         if manager is None:
-             manager = self.manager
-         if isinstance(data, dict):
-             proxy_dict = manager.dict()
-             for key, value in data.items():
-                 proxy_dict[key] = self._recursive_proxy(value, manager)
-             return proxy_dict
-         elif isinstance(data, list):
-             proxy_list = manager.list()
-             for item in data:
-                 proxy_list.append(self._recursive_proxy(item, manager))
-             return proxy_list
-         elif isinstance(data, (str, int, float, bool, type(None))):
-             return data
-         else:
-             error = f'Unsupported data type: {type(data)}'
-             print(error)
-             return None
+        if manager is None:
+            manager = self.manager
+        if isinstance(data, dict):
+            proxy_dict = manager.dict()
+            for key, value in data.items():
+                proxy_dict[key] = self._recursive_proxy(value, manager)
+            return proxy_dict
+        elif isinstance(data, list):
+            proxy_list = manager.list()
+            for item in data:
+                proxy_list.append(self._recursive_proxy(item, manager))
+            return proxy_list
+        elif isinstance(data, (str, int, float, bool, type(None))):
+            return data
+        else:
+            error = f'Unsupported data type: {type(data)}'
+            print(error)
+            return None
+
     def set_session(self, session_id:str)->Any:
-         self.sessions[session_id] = self._recursive_proxy({
-             ####### Global settings
-             "id": session_id,
-             "script_mode": NATIVE,
-             "tab_id": None,
-             "socket_hash": None,
-             "session_dir": None,
-             "is_gui_process": False,
-             "free_vram_gb": 0,
-             "status": None,
-             "ticker": 0,
-             "cancellation_requested": False,
-             "ebook_mode": ebook_modes['SINGLE'],
-             "blocks_preview": False,
-             "device": default_device,
-             "tts_engine": default_tts_engine,
-             "fine_tuned": default_fine_tuned,
-             "model_cache": None,
-             "model_zs_cache": None,
-             "stanza_cache": None,
-             "system": None,
-             "client": None,
-             "language": default_language_code,
-             "language_iso1": None,
-             "translate_enabled": False,
-             "translate": None,
-             "translate_iso1": None,
-             "voice": None,
-             "voice_dir": None,
-             "voice_map": {},
-             "ebook_selected": None,
-             "custom_model": None,
-             "custom_model_dir": None,
-             "output_dir": None,
-             "output_format": default_output_format,
-             "output_channel": default_output_channel,
-             "output_split": default_output_split,
-             "output_split_hours": default_output_split_hours,
-             "abs_url": default_abs_url,
-             "abs_api_token": default_abs_api_token,
-             "abs_library": default_abs_library,
-             ####### Xtts settings
-             "xtts_temperature": default_engine_settings[TTS_ENGINES['XTTS']]['temperature'],
-             #"xtts_codec_temperature": default_engine_settings[TTS_ENGINES['XTTS']]['codec_temperature'],
-             "xtts_length_penalty": default_engine_settings[TTS_ENGINES['XTTS']]['length_penalty'],
-             "xtts_num_beams": default_engine_settings[TTS_ENGINES['XTTS']]['num_beams'],
-             "xtts_repetition_penalty": default_engine_settings[TTS_ENGINES['XTTS']]['repetition_penalty'],
-             #"xtts_cvvp_weight": default_engine_settings[TTS_ENGINES['XTTS']]['cvvp_weight'],
-             "xtts_top_k": default_engine_settings[TTS_ENGINES['XTTS']]['top_k'],
-             "xtts_top_p": default_engine_settings[TTS_ENGINES['XTTS']]['top_p'],
-             "xtts_speed": default_engine_settings[TTS_ENGINES['XTTS']]['speed'],
-             #"xtts_gpt_cond_len": default_engine_settings[TTS_ENGINES['XTTS']]['gpt_cond_len'],
-             #"xtts_gpt_batch_size": default_engine_settings[TTS_ENGINES['XTTS']]['gpt_batch_size'],
-             "xtts_enable_text_splitting": default_engine_settings[TTS_ENGINES['XTTS']]['enable_text_splitting'],
-             ####### Bark settings
-             "bark_text_temp": default_engine_settings[TTS_ENGINES['BARK']]['text_temp'],
-             "bark_waveform_temp": default_engine_settings[TTS_ENGINES['BARK']]['waveform_temp'],
-             ####### Audiobook editor
-             "audiobook": None,
-             "audiobooks_dir": None,
-             ####### Ebook conversion
-             "ebook": None,
-             "ebook_src": None,
-             "ebook_list": None,
-             "ebook_loaded": None,
-             "ebook_textarea": None,
-             "ebook_textarea_src": None,
-             "audiobook_overridden": None,
-             "process_dir": None,
-             "chapters_dir": None,
-             "sentences_dir": None,
-             "epub_path": None,
-             "final_name": None,
-             "filename_noext": None,
-             "cover": None,
-             "blocks_orig": {},
-             "blocks_saved": {},
-             "blocks_current": {},
-             "blocks_orig_json": None,
-             "blocks_saved_json": None,
-             "blocks_current_db": None,
-             "duration": 0,
-             "playback_time": 0,
-             "playback_volume": 0,
-             "metadata": {
-                 "title": None, 
-                 "creator": None,
-                 "contributor": None,
-                 "language": None,
-                 "identifier": None,
-                 "publisher": None,
-                 "date": None,
-                 "description": None,
-                 "subject": None,
-                 "rights": None,
-                 "format": None,
-                 "type": None,
-                 "coverage": None,
-                 "relation": None,
-                 "Source": None,
-                 "Modified": None,
-             }
-         }, manager=self.manager)
-         return self.sessions[session_id]
+        self.sessions[session_id] = self._recursive_proxy({
+            ####### Global settings
+            "id": session_id,
+            "script_mode": NATIVE,
+            "tab_id": None,
+            "socket_hash": None,
+            "session_dir": None,
+            "is_gui_process": False,
+            "free_vram_gb": 0,
+            "status": None,
+            "ticker": 0,
+            "cancellation_requested": False,
+            "ebook_mode": ebook_modes['SINGLE'],
+            "blocks_preview": False,
+            "device": default_device,
+            "tts_engine": default_tts_engine,
+            "fine_tuned": default_fine_tuned,
+            "model_cache": None,
+            "model_zs_cache": None,
+            "stanza_cache": None,
+            "system": None,
+            "client": None,
+            "language": default_language_code,
+            "language_iso1": None,
+            "translate_enabled": False,
+            "translate": None,
+            "translate_iso1": None,
+            "voice": None,
+            "voice_dir": None,
+            "voice_map": {},
+            "ebook_selected": None,
+            "custom_model": None,
+            "custom_model_dir": None,
+            "output_dir": None,
+            "output_format": default_output_format,
+            "output_channel": default_output_channel,
+            "output_split": default_output_split,
+            "output_split_hours": default_output_split_hours,
+            "abs_url": default_abs_url,
+            "abs_api_token": default_abs_api_token,
+            "abs_library": default_abs_library,
+            ####### Xtts settings
+            "xtts_temperature": default_engine_settings[TTS_ENGINES['XTTS']]['temperature'],
+            #"xtts_codec_temperature": default_engine_settings[TTS_ENGINES['XTTS']]['codec_temperature'],
+            "xtts_length_penalty": default_engine_settings[TTS_ENGINES['XTTS']]['length_penalty'],
+            "xtts_num_beams": default_engine_settings[TTS_ENGINES['XTTS']]['num_beams'],
+            "xtts_repetition_penalty": default_engine_settings[TTS_ENGINES['XTTS']]['repetition_penalty'],
+            #"xtts_cvvp_weight": default_engine_settings[TTS_ENGINES['XTTS']]['cvvp_weight'],
+            "xtts_top_k": default_engine_settings[TTS_ENGINES['XTTS']]['top_k'],
+            "xtts_top_p": default_engine_settings[TTS_ENGINES['XTTS']]['top_p'],
+            "xtts_speed": default_engine_settings[TTS_ENGINES['XTTS']]['speed'],
+            #"xtts_gpt_cond_len": default_engine_settings[TTS_ENGINES['XTTS']]['gpt_cond_len'],
+            #"xtts_gpt_batch_size": default_engine_settings[TTS_ENGINES['XTTS']]['gpt_batch_size'],
+            "xtts_enable_text_splitting": default_engine_settings[TTS_ENGINES['XTTS']]['enable_text_splitting'],
+            ####### Bark settings
+            "bark_text_temp": default_engine_settings[TTS_ENGINES['BARK']]['text_temp'],
+            "bark_waveform_temp": default_engine_settings[TTS_ENGINES['BARK']]['waveform_temp'],
+            ####### Audiobook editor
+            "audiobook": None,
+            "audiobooks_dir": None,
+            ####### Ebook conversion
+            "ebook": None,
+            "ebook_src": None,
+            "ebook_list": None,
+            "ebook_loaded": None,
+            "ebook_textarea": None,
+            "ebook_textarea_src": None,
+            "audiobook_overridden": None,
+            "process_dir": None,
+            "chapters_dir": None,
+            "sentences_dir": None,
+            "epub_path": None,
+            "final_name": None,
+            "filename_noext": None,
+            "cover": None,
+            "blocks_orig": {},
+            "blocks_saved": {},
+            "blocks_current": {},
+            "blocks_orig_json": None,
+            "blocks_saved_json": None,
+            "blocks_current_db": None,
+            "duration": 0,
+            "playback_time": 0,
+            "playback_volume": 0,
+            "metadata": {
+                "title": None, 
+                "creator": None,
+                "contributor": None,
+                "language": None,
+                "identifier": None,
+                "publisher": None,
+                "date": None,
+                "description": None,
+                "subject": None,
+                "rights": None,
+                "format": None,
+                "type": None,
+                "coverage": None,
+                "relation": None,
+                "Source": None,
+                "Modified": None,
+            }
+        }, manager=self.manager)
+        return self.sessions[session_id]
+
     def get_session(self, session_id:str)->Any:
         if session_id in self.sessions:
             return self.sessions[session_id]
         return {}
+
     def find_id_by_hash(self, socket_hash:str)->str|None:
         for session_id, session in list(self.sessions.items()):
             if socket_hash in session:
                 return session_id
         return None
-
+        
 class JSONDictProxyEncoder(json.JSONEncoder):
     def default(self, o:Any)->Any:
         if isinstance(o, DictProxy):
@@ -277,18 +287,22 @@ class AppAutosave:
         self._sessions: set[str] = set()
         self._lock = threading.Lock()
         self._started = False
+
     def start(self)->None:
-         if self._started:
-             return
-         self._started = True
-         t = threading.Thread(target=self._timer, daemon=True)
-         t.start()
+        if self._started:
+            return
+        self._started = True
+        t = threading.Thread(target=self._timer, daemon=True)
+        t.start()
+
     def register(self, session_id:str)->None:
         with self._lock:
             self._sessions.add(session_id)
+
     def unregister(self, session_id:str)->None:
         with self._lock:
             self._sessions.discard(session_id)
+
     def _timer(self)->None:
         while True:
             time.sleep(self._interval)
@@ -304,7 +318,7 @@ class AppAutosave:
                 except Exception as e:
                     logger.error(f'AppAutosave._timer({session_id}): {e}!')
 """
-
+        
 ############# End classes
 
 def prepare_dirs(session_id:str)->bool:
@@ -329,7 +343,7 @@ def check_programs(prog_name:str, command:str, options:str)->bool:
     try:
         subprocess.run(
             [command, options],
-            stdout=subprocess.PIPE,
+            stdout=subprocess.PIPE, 
             stderr=subprocess.PIPE,
             check=True,
             text=True,
@@ -337,7 +351,7 @@ def check_programs(prog_name:str, command:str, options:str)->bool:
         )
         return True
     except FileNotFoundError:
-        e = f'''********** Error: {prog_name} is not installed! if your OS calibre package version
+        e = f'''********** Error: {prog_name} is not installed! if your OS calibre package version 
         is not compatible you still can run ebook2audiobook.sh (linux/mac) or ebook2audiobook.cmd (windows) **********'''
         DependencyError(e)
     except subprocess.CalledProcessError:
@@ -404,30 +418,30 @@ def extract_custom_model(session_id)->str|None:
                             out_path = os.path.join(model_path, base_f)
                             with zip_ref.open(f) as src, open(out_path, 'wb') as dst:
                                 shutil.copyfileobj(src, dst)
-                            t.update(1)
-                            if session['is_gui_process']:
-                                progress_bar((t.n + 1) / files_length, desc=msg)
-                if model_path is not None:
-                    msg = f'Normalizing ref.wav…'
-                    print(msg)
-                    voice_ref = os.path.join(model_path, 'ref.wav')
-                    voice_name = model_name
-                    final_voice_file = os.path.join(model_path, f'{voice_name}.wav')
-                    extractor = VoiceExtractor(session, voice_ref, voice_name, final_voice_file)
-                    status, msg = extractor.extract_voice()
-                    if status:
-                        session['voice'] = final_voice_file
-                        if os.path.exists(file_src):
-                            os.remove(file_src)
-                        if os.path.exists(voice_ref):
-                            os.remove(voice_ref)
-                        return model_path
-                    else:
-                        error = f'extract_custom_model() VoiceExtractor.extract_voice() error! {msg}'
-                        print(error)
+                        t.update(1)
+                        if session['is_gui_process']:
+                            progress_bar((t.n + 1) / files_length, desc=msg)
+            if model_path is not None:
+                msg = f'Normalizing ref.wav…'
+                print(msg)
+                voice_ref = os.path.join(model_path, 'ref.wav')
+                voice_name = model_name
+                final_voice_file = os.path.join(model_path, f'{voice_name}.wav')
+                extractor = VoiceExtractor(session, voice_ref, voice_name, final_voice_file)
+                status, msg = extractor.extract_voice()
+                if status:
+                    session['voice'] = final_voice_file
+                    if os.path.exists(file_src):
+                        os.remove(file_src)
+                    if os.path.exists(voice_ref):
+                        os.remove(voice_ref)
+                    return model_path
                 else:
-                    error = f'An error occurred when unzip {file_src}'
+                    error = f'extract_custom_model() VoiceExtractor.extract_voice() error! {msg}'
                     print(error)
+            else:
+                error = f'An error occurred     when unzip {file_src}'
+                print(error)
         except asyncio.exceptions.CancelledError as e:
             DependencyError(e)
             error = f'extract_custom_model asyncio.exceptions.CancelledError: {e}'
@@ -436,12 +450,12 @@ def extract_custom_model(session_id)->str|None:
             DependencyError(e)
             error = f'extract_custom_model Exception: {e}'
             print(error)
-            if session['is_gui_process']:
-                if os.path.exists(file_src):
-                    os.remove(file_src)
-                session['custom_model'] = None
-                return None
-
+        if session['is_gui_process']:
+            if os.path.exists(file_src):
+                os.remove(file_src)
+        session['custom_model'] = None
+    return None
+        
 def hash_proxy_dict(proxy_dict:Any)->str:
     try:
         data = {k: v for k, v in dict(proxy_dict).items() if k not in save_session_keys_except}
@@ -473,7 +487,7 @@ def compare_checksums(session_id:str)->tuple[bool, str|None]:
                 else:
                     with open(checksum_path, 'w', encoding='utf-8') as f:
                         f.write(new_checksum)
-                    return False, None
+                        return False, None
         error = f'compare_checksums() error: session does not exist'
         return False, error
     except Exception as e:
@@ -579,7 +593,7 @@ def ocr2xhtml(img: Image.Image, lang:str)->tuple[str|bool, str|None]:
                 debug_dump.append(f'[H2] {p}')
             else:
                 xhtml_parts.append(f'<p>{p}</p>')
-                debug_dump.append(f'[P] {p}')
+                debug_dump.append(f'[P ] {p}')
         if debug:
             print('=== OCR DEBUG OUTPUT ===')
             for line in debug_dump:
@@ -598,35 +612,35 @@ def create_db_blocks(db_path:str)->None:
         conn.execute('PRAGMA synchronous=NORMAL')
         conn.execute('PRAGMA foreign_keys=ON')
         conn.executescript('''
-        CREATE TABLE IF NOT EXISTS stamp (
-            id INTEGER PRIMARY KEY CHECK (id = 1),
-            page INTEGER,
-            block_resume INTEGER,
-            sentence_resume INTEGER,
-            voice TEXT,
-            tts_engine TEXT,
-            fine_tuned TEXT
-        );
-        CREATE TABLE IF NOT EXISTS blocks (
-            id TEXT PRIMARY KEY,
-            idx INTEGER NOT NULL,
-            expand INTEGER NOT NULL,
-            keep INTEGER NOT NULL,
-            text TEXT NOT NULL,
-            voice TEXT,
-            tts_engine TEXT,
-            fine_tuned TEXT
-        );
-        CREATE TABLE IF NOT EXISTS sentences (
-            block_id TEXT NOT NULL,
-            idx INTEGER NOT NULL,
-            text TEXT NOT NULL,
-            PRIMARY KEY (block_id, idx),
-            FOREIGN KEY (block_id) REFERENCES blocks(id) ON DELETE CASCADE
-        );
-        CREATE INDEX IF NOT EXISTS idx_blocks_idx ON blocks(idx);
-        INSERT OR IGNORE INTO stamp (id, page, block_resume, sentence_resume, voice, tts_engine, fine_tuned)
-        VALUES (1, 0, 0, 0, NULL, NULL, NULL);
+            CREATE TABLE IF NOT EXISTS stamp (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                page INTEGER,
+                block_resume INTEGER,
+                sentence_resume INTEGER,
+                voice TEXT,
+                tts_engine TEXT,
+                fine_tuned TEXT
+            );
+            CREATE TABLE IF NOT EXISTS blocks (
+                id TEXT PRIMARY KEY,
+                idx INTEGER NOT NULL,
+                expand INTEGER NOT NULL,
+                keep INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                voice TEXT,
+                tts_engine TEXT,
+                fine_tuned TEXT
+            );
+            CREATE TABLE IF NOT EXISTS sentences (
+                block_id TEXT NOT NULL,
+                idx INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                PRIMARY KEY (block_id, idx),
+                FOREIGN KEY (block_id) REFERENCES blocks(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_blocks_idx ON blocks(idx);
+            INSERT OR IGNORE INTO stamp (id, page, block_resume, sentence_resume, voice, tts_engine, fine_tuned)
+            VALUES (1, 0, 0, 0, NULL, NULL, NULL);
         ''')
 
 def load_db_blocks(db_path:str)->dict:
@@ -935,7 +949,7 @@ def normalize_epub_zip(session_id:str, file_input:str)->str|None:
     except Exception as e:
         error = f'normalize_epub_zip(): {e}'
         exception_alert(session_id, error)
-        return None
+    return None
 
 def convert2epub(session_id:str)->bool:
     session = context.get_session(session_id)
@@ -969,7 +983,7 @@ def convert2epub(session_id:str)->bool:
                 with open(file_input, 'r', encoding='utf-8') as f:
                     text = f.read()
                 text = text.replace('\r\n', '\n')
-                text = re.sub(r'\n{2,}', f".{TTS_SML['pause']['static']} ", text)
+                text = re.sub(r'\n{2,}', f".{TTS_SML['pause']['static']}", text)
                 with open(file_input, 'w', encoding='utf-8') as f:
                     f.write(text)
             elif file_ext == '.pdf':
@@ -999,10 +1013,10 @@ def convert2epub(session_id:str)->bool:
                         pix = page.get_pixmap(dpi=300)
                         img = Image.open(io.BytesIO(pix.tobytes('png')))
                         xhtml_content, error = ocr2xhtml(img, session['language'])
-                        if xhtml_content:
-                            xhtml_pages.append(xhtml_content)
-                        else:
-                            show_alert(session_id, {"type": "warning", "msg": error})
+                    if xhtml_content:
+                        xhtml_pages.append(xhtml_content)
+                    else:
+                        show_alert(session_id, {"type": "warning", "msg": error})
                 if xhtml_pages:
                     xhtml_body = '\n'.join(xhtml_pages)
                     xhtml_text = (
@@ -1195,18 +1209,18 @@ def convert2epub(session_id:str)->bool:
             msg = f"Running command: {' '.join(cmd_prefix)} {file_input} {session['epub_path']}"
             print(msg)
             cmd = cmd_prefix + [
-                file_input, session['epub_path'],
-                '--input-encoding=utf-8',
-                '--output-profile=generic_eink',
-                '--flow-size=0',
-                '--chapter-mark=pagebreak',
-                '--page-breaks-before',
-                "//*[name()='h1' or name()='h2' or name()='h3' or name()='h4' or name()='h5']",
-                '--disable-font-rescaling',
-                '--pretty-print',
-                '--smarten-punctuation',
-                '--verbose'
-            ]
+                    file_input, session['epub_path'],
+                    '--input-encoding=utf-8',
+                    '--output-profile=generic_eink',
+                    '--flow-size=0',
+                    '--chapter-mark=pagebreak',
+                    '--page-breaks-before',
+                    "//*[name()='h1' or name()='h2' or name()='h3' or name()='h4' or name()='h5']",
+                    '--disable-font-rescaling',
+                    '--pretty-print',
+                    '--smarten-punctuation',
+                    '--verbose'
+                ]
             if title:
                 cmd += ['--title', title]
             if author:
@@ -1258,8 +1272,8 @@ def get_ebook_title(epubBook:EpubBook, all_docs:list[Any])->str|None:
         title_tag = soup.select_one('head > title')
         if title_tag and title_tag.text.strip():
             return title_tag.text.strip()
-        # 3. Try <img alt='…'> if no visible <title>
-        img = soup.find('img',alt=True)
+        # 3. Try <img alt = '…'> if no visible <title>
+        img = soup.find('img',alt = True)
         if img:
             alt = img['alt'].strip()
             if alt and 'cover' not in alt.lower():
@@ -1288,7 +1302,7 @@ def get_cover(epubBook:EpubBook, session_id:str)->bool|str:
                 # Convert to RGB if needed (JPEG doesn't support alpha)
                 if image.mode in ('RGBA', 'P'):
                     image = image.convert('RGB')
-                image.save(cover_path, format='JPEG')
+                image.save(cover_path, format = 'JPEG')
                 return cover_path
             return True
     except Exception as e:
@@ -1298,6 +1312,7 @@ def get_cover(epubBook:EpubBook, session_id:str)->bool|str:
 def get_blocks(session_id:str, epubBook:EpubBook)->list:
     try:
         msg = r'''
+*******************************************************************************
 NOTE:
 The warning "Character xx not found in the vocabulary."
 MEANS THE MODEL CANNOT INTERPRET THE CHARACTER AND WILL MAYBE GENERATE
@@ -1305,6 +1320,7 @@ MEANS THE MODEL CANNOT INTERPRET THE CHARACTER AND WILL MAYBE GENERATE
 TO MANUALLY REMOVE ALL UNRECOGNIZED CHARS AND WRONG PUNCTUATIONS FROM YOUR EBOOK
 AND RESTART THE CONVERSION. TO IMPROVE THIS MODEL, IT NEEDS TO ADD THIS CHARACTER
 INTO A NEW TRAINING MODEL. YOU CAN IMPROVE IT OR ASK TO A TRAINING MODEL EXPERT.
+*******************************************************************************
         '''
         print(msg)
         session = context.get_session(session_id)
@@ -1412,6 +1428,7 @@ INTO A NEW TRAINING MODEL. YOU CAN IMPROVE IT OR ASK TO A TRAINING MODEL EXPERT.
         return []
 
 def filter_blocks(session_id:str, idx:int, doc:EpubHtml, stanza_nlp:Pipeline, is_num2words_compat:bool, non_text_filter:NonTextFilter, zf:zipfile.ZipFile=None, zip_names:set=None, zip_basenames:dict=None)->str|None:
+
     def _tuple_row(node:Any, last_text_char:str|None=None, in_heading:bool=False)->Generator[tuple[str, Any], None, None]|None:
         try:
             prev_child_had_data = False
@@ -1478,6 +1495,7 @@ def filter_blocks(session_id:str, idx:int, doc:EpubHtml, stanza_nlp:Pipeline, is
             error = f'filter_blocks() _tuple_row() error: {e}'
             DependencyError(error)
             return None
+
     def _num_repl(m):
         s = m.group(0)
         # leave years alone (already handled above)
@@ -1488,6 +1506,7 @@ def filter_blocks(session_id:str, idx:int, doc:EpubHtml, stanza_nlp:Pipeline, is
             return num2words(n, lang=(lang_iso1 or 'en'))
         else:
             return math2words(m, lang, lang_iso1, tts_engine, is_num2words_compat)
+
     try:
         msg = f'----------\nParsing doc {idx}'
         print(msg)
@@ -1720,6 +1739,7 @@ def filter_blocks(session_id:str, idx:int, doc:EpubHtml, stanza_nlp:Pipeline, is
         return None
 
 def get_sentences(session_id:str, text:str)->list|None:
+
     def _split_inclusive(text:str, pattern:re.Pattern[str])->list[str]:
         result = []
         last_end = 0
@@ -1731,6 +1751,7 @@ def get_sentences(session_id:str, text:str)->list|None:
             if tail:
                 result.append(tail)
         return result
+
     def _split_sentence_on_sml(sentence:str)->list[str]:
         parts:list[str] = []
         last = 0
@@ -1759,16 +1780,20 @@ def get_sentences(session_id:str, text:str)->list|None:
         if last < n:
             parts.append(sentence[last:])
         return parts
+
     def _strip_escaped_sml(s:str)->str:
         return ''.join(c for c in s if ord(c) < sml_escape_tag)
+
     def _clean_len(s:str)->int:
         return len(_strip_escaped_sml(s))
+
     def _is_latin_only(s:str)->bool:
         s = _strip_escaped_sml(s)
         s = re.sub(r'[^\w\s]', '', s, flags=re.UNICODE)
         has_latin = bool(re.search(r'[A-Za-z]', s))
         has_nonlatin = bool(re.search(r'[^\x00-\x7F]', s))
         return has_latin and not has_nonlatin
+
     def _segment_ideogramms(text:str)->list[str]:
         result = []
         try:
@@ -1795,6 +1820,7 @@ def get_sentences(session_id:str, text:str)->list|None:
         except Exception as e:
             DependencyError(e)
             return [text]
+
     def _join_ideogramms(idg_list:list[str])->str:
         try:
             buffer = ''
@@ -1818,10 +1844,10 @@ def get_sentences(session_id:str, text:str)->list|None:
             DependencyError(e)
             if buffer:
                 yield buffer
+
     def _is_pure_escaped_sml(s:str)->bool:
         return bool(s) and all(ord(c) >= sml_escape_tag for c in s)
-    # FIX #3: _strip_leading_noise — keep sentence-initial punctuation that
-    # precedes alphanumeric content (e.g. …"Really?") instead of eating it.
+
     def _strip_leading_noise(s:str)->str:
         i = 0
         n = len(s)
@@ -1829,13 +1855,9 @@ def get_sentences(session_id:str, text:str)->list|None:
             c = s[i]
             if c.isalnum() or c == '_' or c.isspace() or ord(c) >= sml_escape_tag:
                 break
-            # Look ahead: if the next non-space char is alphanumeric or SML,
-            # this punctuation is meaningful sentence-initial content — keep it
-            rest_after = s[i + 1:].lstrip()
-            if rest_after and (rest_after[0].isalnum() or ord(rest_after[0]) >= sml_escape_tag):
-                break
             i += 1
         return s[i:].lstrip()
+
     def _force_split_segment(segment:str)->list[str]:
         results = []
         rest = segment
@@ -1877,6 +1899,7 @@ def get_sentences(session_id:str, text:str)->list|None:
             results.append(left)
             rest = right
         return results
+
     try:
         session = context.get_session(session_id)
         if not session:
@@ -1886,8 +1909,10 @@ def get_sentences(session_id:str, text:str)->list|None:
             lang = session['translate']
         tts_engine = session['tts_engine']
         max_chars = int(language_mapping[lang]['max_chars'] / 2)
+
         text, sml_blocks = escape_sml(text)
         assert not SML_TAG_PATTERN.search(text)
+
         # Tokenize into content and SML runs
         segments = []
         idx = 0
@@ -1908,21 +1933,26 @@ def get_sentences(session_id:str, text:str)->list|None:
                 idx += 1
         if current_text:
             segments.append(('text', ''.join(current_text)))
+
         # SINGLE inline buffer — SML stays in position next to its surrounding text.
         # On overflow, cut at the LAST SML position in the buffer (a natural pause point).
         final_list = []
         buffer = []
         current_len = 0
+
         for seg_type, seg_content in segments:
             if seg_type == 'sml':
                 buffer.append(seg_content)
                 continue
+
             seg_clean_len = _clean_len(seg_content)
             potential_len = current_len + seg_clean_len
+
             if potential_len <= max_chars:
                 buffer.append(seg_content)
                 current_len = potential_len
                 continue
+
             # Doesn't fit. Try to cut at the rightmost SML run in the buffer.
             combined = ''.join(buffer)
             cut_idx = -1
@@ -1932,6 +1962,7 @@ def get_sentences(session_id:str, text:str)->list|None:
                     cut_idx = j + 1
                     break
                 j -= 1
+
             cut_done = False
             if 0 < cut_idx <= len(combined):
                 part1 = combined[:cut_idx]
@@ -1945,6 +1976,7 @@ def get_sentences(session_id:str, text:str)->list|None:
                     buffer = [part2, seg_content] if part2 else [seg_content]
                     current_len = _clean_len(part2) + seg_clean_len
                     cut_done = True
+
             if not cut_done:
                 # No usable SML cut. Flush buffer wholesale (force-split if too long).
                 if _strip_escaped_sml(combined).strip():
@@ -1977,6 +2009,7 @@ def get_sentences(session_id:str, text:str)->list|None:
                     else:
                         buffer = [pending, seg_content] if pending.strip() else [seg_content]
                         current_len = seg_clean_len
+
         # Final flush
         if buffer:
             combined = ''.join(buffer).strip()
@@ -1989,12 +2022,15 @@ def get_sentences(session_id:str, text:str)->list|None:
                 elif final_list:
                     # Trailing pure-SML — attach to last sentence, no standalone
                     final_list[-1] = final_list[-1].rstrip() + ' ' + combined
+
         final_list = [_strip_leading_noise(s) for s in final_list if s.strip()]
         final_list = [s for s in final_list if s]
+
         # Merge orphan-short sentences. A sentence below max_chars/2 is "too short";
         # absorb it into the previous (preferred) or next sentence when that fits.
         merge_threshold = max_chars // 2
         merge_ceiling   = max_chars + max_chars // 2   # max_chars + overhead of max_chars/2
+
         merged_list = []
         i = 0
         n = len(final_list)
@@ -2022,6 +2058,7 @@ def get_sentences(session_id:str, text:str)->list|None:
             merged_list.append(cur)
             i += 1
         final_list = merged_list
+
         if lang in ['zho', 'jpn', 'kor', 'tha', 'lao', 'mya', 'khm']:
             result = []
             for s in final_list:
@@ -2046,31 +2083,23 @@ def get_sentences(session_id:str, text:str)->list|None:
                     ideogram_list.append(s)
             if ideogram_list:
                 ideogram_list = [restore_sml(s, sml_blocks) for s in ideogram_list]
-                # FIX #5b: same SML whitespace normalization for ideographic path
-                ideogram_list = [re.sub(r'(?<=\S)(\[[^\]]+\])', r' \1', s) for s in ideogram_list]
-                ideogram_list = [re.sub(r'(\[[^\]]+\])(?=\S)', r'\1 ', s) for s in ideogram_list]
-                ideogram_list = [' '.join(s.split()) for s in ideogram_list]
             return ideogram_list
+
         if final_list:
             final_list = [restore_sml(s, sml_blocks) for s in final_list]
-            # FIX #5a: ensure restored SML tags are always surrounded by spaces
-            # so the TTS never receives glued tokens like "Really?[break]I"
-            final_list = [re.sub(r'(?<=\S)(\[[^\]]+\])', r' \1', s) for s in final_list]
-            final_list = [re.sub(r'(\[[^\]]+\])(?=\S)', r'\1 ', s) for s in final_list]
-            final_list = [' '.join(s.split()) for s in final_list]
         return final_list
     except Exception as e:
         print(f'get_sentences() error: {e}')
         return None
 
-def get_sanitized(str:str, replacement:str='')->str:
+def get_sanitized(str:str, replacement:str='_')->str:
     str = str.replace('&', 'And')
     forbidden_chars = r'[<>:"/\\|?*\x00-\x1F ()]'
     sanitized = re.sub(r'\s+', replacement, str)
     sanitized = re.sub(forbidden_chars, replacement, sanitized)
-    sanitized = sanitized.strip('')
+    sanitized = sanitized.strip('_')
     return sanitized
-
+    
 def get_date_entities(text:str, stanza_nlp:Pipeline)->list[tuple[int,int,str]]|bool:
     try:
         doc = stanza_nlp(text)
@@ -2094,18 +2123,19 @@ def get_num2words_compat(lang_iso1:str)->bool:
         return False
 
 def set_formatted_number(text:str, lang:str, lang_iso1:str, is_num2words_compat:bool, max_single_value:int=999_999_999_999_999_999)->str:
-    # match up to 18 digits, optional ",…" groups (allowing spaces or NBSP after comma), optional decimal of up to 12 digits
+    # match up to 18 digits, optional “,…” groups (allowing spaces or NBSP after comma), optional decimal of up to 12 digits
     # handle optional range with dash/en dash/em dash between numbers, and allow trailing punctuation
     number_re = re.compile(
         r'(?<!\w)'
         r'(\d{1,18}(?:,\s*\d{1,18})*(?:\.\d{1,12})?)'      # first number
-        r'(?:\s*([-–—])\s*'                                  # dash type
+        r'(?:\s*([-–—])\s*'                                # dash type
         r'(\d{1,18}(?:,\s*\d{1,18})*(?:\.\d{1,12})?))?'    # optional second number
-        r'([^\w\s])?',                                       # optional trailing punctuation
+        r'([^\w\s]*)',                                     # optional trailing punctuation
         re.UNICODE
     )
+
     def _normalize_commas(num_str:str)->str:
-        # normalize number string to standard comma format: 1,234,567
+        # ormalize number string to standard comma format: 1,234,567
         tok = num_str.replace('\u00A0', '').replace(' ', '')
         if '.' in tok:
             integer_part, decimal_part = tok.split('.', 1)
@@ -2115,6 +2145,7 @@ def set_formatted_number(text:str, lang:str, lang_iso1:str, is_num2words_compat:
         else:
             integer_part = tok.replace(',', '')
             return "{:,}".format(int(integer_part))
+
     def _clean_single_num(num_str:str)->str:
         tok = unicodedata.normalize('NFKC', num_str)
         if tok.lower() in ('inf', 'infinity', 'nan'):
@@ -2126,8 +2157,10 @@ def set_formatted_number(text:str, lang:str, lang_iso1:str, is_num2words_compat:
             return tok
         if not math.isfinite(num) or abs(num) > max_single_value:
             return tok
+
         # Normalize commas before final output
         tok = _normalize_commas(tok)
+
         if is_num2words_compat:
             new_lang_iso1 = lang_iso1.replace('zh', 'zh_CN')
             return num2words(num, lang=new_lang_iso1)
@@ -2137,15 +2170,17 @@ def set_formatted_number(text:str, lang:str, lang_iso1:str, is_num2words_compat:
                 language_math_phonemes.get(default_language_code, language_math_phonemes['eng'])
             )
             return ' '.join(phoneme_map.get(ch, ch) for ch in str(num))
+
     def clean_match(match:re.Match)->str:
         first_num = _clean_single_num(match.group(1))
         dash_char = match.group(2) or ''
         second_num = _clean_single_num(match.group(3)) if match.group(3) else ''
         trailing = match.group(4) or ''
         if second_num:
-            return f'{first_num} {dash_char} {second_num}{trailing}'
+            return f'{first_num}{dash_char}{second_num}{trailing}'
         else:
             return f'{first_num}{trailing}'
+
     return number_re.sub(clean_match, text)
 
 def year2words(year_str:str, lang:str, lang_iso1:str, is_num2words_compat:bool)->str|bool:
@@ -2161,7 +2196,7 @@ def year2words(year_str:str, lang:str, lang_iso1:str, is_num2words_compat:bool)-
             else:
                 return ' '.join(language_math_phonemes[lang].get(ch, ch) for ch in year_str)
         if is_num2words_compat:
-            return f'{num2words(first_two, lang=lang_iso1)} {num2words(last_two, lang=lang_iso1)}'
+            return f'{num2words(first_two, lang=lang_iso1)} {num2words(last_two, lang=lang_iso1)}' 
         else:
             return ' '.join(language_math_phonemes[lang].get(ch, ch) for ch in first_two) + ' ' + ' '.join(language_math_phonemes[lang].get(ch, ch) for ch in last_two)
     except Exception as e:
@@ -2170,6 +2205,7 @@ def year2words(year_str:str, lang:str, lang_iso1:str, is_num2words_compat:bool)-
         return False
 
 def clock2words(text:str, lang:str, lang_iso1:str, tts_engine:str, is_num2words_compat:bool)->str:
+
     def _n2w(n:int)->str:
         key = (n, lang, is_num2words_compat)
         if key in _n2w_cache:
@@ -2182,6 +2218,7 @@ def clock2words(text:str, lang:str, lang_iso1:str, tts_engine:str, is_num2words_
             word = str(word)
         _n2w_cache[key] = word
         return word
+
     def _repl_num(m:re.Match)->str:
         # Reject enumeration patterns like "(1.2)"
         start, end = m.start(), m.end()
@@ -2236,6 +2273,7 @@ def clock2words(text:str, lang:str, lang_iso1:str, tts_engine:str, is_num2words_
             second_phrase = lc['second'].format(second=_n2w(sec))
             phrase = lc['full'].format(phrase=phrase, second_phrase=second_phrase)
         return phrase
+
     time_rx = re.compile(
         r'\b([01]?\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?\b'
     )
@@ -2244,6 +2282,7 @@ def clock2words(text:str, lang:str, lang_iso1:str, tts_engine:str, is_num2words_
     return time_rx.sub(_repl_num, text)
 
 def math2words(text:str, lang:str, lang_iso1:str, tts_engine:str, is_num2words_compat:bool)->str:
+
     def _repl_ambiguous(match:re.Match)->str:
         # handles "num SYMBOL num" and "SYMBOL num"
         if match.group(2) and match.group(2) in ambiguous_replacements:
@@ -2251,6 +2290,7 @@ def math2words(text:str, lang:str, lang_iso1:str, tts_engine:str, is_num2words_c
         if match.group(3) and match.group(3) in ambiguous_replacements:
             return f'{ambiguous_replacements[match.group(3)]} {match.group(4)}'
         return match.group(0)
+
     def _ordinal_to_words(m:re.Match)->str:
         n = int(m.group(1))
         if is_num2words_compat:
@@ -2260,6 +2300,7 @@ def math2words(text:str, lang:str, lang_iso1:str, tts_engine:str, is_num2words_c
                 pass
         # If num2words isn't available/compatible, keep original token as-is.
         return m.group(0)
+
     # Matches any digits + optional space/NBSP + st/nd/rd/th, not glued into words.
     re_ordinal = re.compile(r'(?<!\w)(\d+)(?:\s|\u00A0)*(?:st|nd|rd|th)(?!\w)')
     text = re.sub(r'(\d)\)', r'\1 : ', text)
@@ -2288,8 +2329,10 @@ def math2words(text:str, lang:str, lang_iso1:str, tts_engine:str, is_num2words_c
     return text
 
 def roman2number(text:str)->str:
+
     def _is_valid_roman(s:str)->bool:
         return bool(valid_roman.fullmatch(s))
+
     def _to_int(s:str)->str:
         s = s.upper()
         i = 0
@@ -2303,27 +2346,32 @@ def roman2number(text:str)->str:
             else:
                 return s
         return str(result)
+
     def _repl_heading(m:re.Match)->str:
         roman = m.group(1)
         if not _is_valid_roman(roman):
             return m.group(0)
         return f"{_to_int(roman)}{m.group(2)}{m.group(3)}"
+
     def _repl_standalone(m:re.Match)->str:
         roman = m.group(1)
         if not _is_valid_roman(roman):
             return m.group(0)
         return f"{_to_int(roman)}{m.group(2)}"
+
     def _repl_word(m:re.Match)->str:
         roman = m.group(1)
         if not _is_valid_roman(roman):
             return m.group(0)
         return _to_int(roman)
+
     def _repl_chapter_single(m:re.Match)->str:
         word = m.group(1)
         roman = m.group(2)
         if not _is_valid_roman(roman):
             return m.group(0)
         return f'{word} {_to_int(roman)}'
+
     valid_roman = re.compile(
         r'^(?=.)M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$',
         re.IGNORECASE
@@ -2356,13 +2404,12 @@ def roman2number(text:str)->str:
         text
     )
     return text
-
+    
 def is_latin(s:str)->bool:
     return all((u'a' <= ch.lower() <= 'z') or ch.isdigit() or not ch.isalpha() for ch in s)
 
-# FIX #1: foreign2latin — restore spaces AFTER punctuation so the TTS
-# doesn't receive glued tokens like "Really?I" or "Well,go".
 def foreign2latin(text:str, base_lang:str)->str:
+
     def _script_of(word:str)->str:
         for ch in word:
             if ch.isalpha():
@@ -2380,6 +2427,7 @@ def foreign2latin(text:str, base_lang:str)->str:
                 if 'CJK' in name or 'IDEOGRAPH' in name:
                     return 'chinese'
         return 'unknown'
+
     def _romanize(word:str)->str:
         scr = _script_of(word)
         if scr == 'latin':
@@ -2403,6 +2451,7 @@ def foreign2latin(text:str, base_lang:str)->str:
             return unidecode(word)
         except Exception:
             return unidecode(word)
+
     # Protect ALL SML tags using the global grammar
     protected:dict[str, str] = {}
     for i, m in enumerate(SML_TAG_PATTERN.finditer(text)):
@@ -2423,21 +2472,9 @@ def foreign2latin(text:str, base_lang:str)->str:
         if i == 0:
             out += t
         else:
-            prev_is_word = bool(re.match(r"^\w+$", buf[i - 1]))
-            curr_is_word = bool(re.match(r"^\w+$", t))
-            prev_is_protected = buf[i - 1] in protected
-            curr_is_protected = t in protected
-            if prev_is_word and curr_is_word:
-                # word word → space
-                out += ' ' + t
-            elif prev_is_protected or curr_is_protected:
-                # adjacent to an SML marker → space
-                out += ' ' + t
-            elif not prev_is_word and not prev_is_protected and curr_is_word:
-                # FIX: punctuation followed by word → insert the missing space
+            if re.match(r"^\w+$", buf[i - 1]) and re.match(r"^\w+$", t):
                 out += ' ' + t
             else:
-                # punctuation after word, or punct-punct: glue (correct)
                 out += t
     for k, v in protected.items():
         out = out.replace(k, v)
@@ -2486,9 +2523,11 @@ def normalize_sml_tags(text:str)->tuple[bool, str]:
 
 def escape_sml(text:str)->tuple[str, list[str]]:
     sml_blocks:list[str] = []
+
     def _replace(m:re.Match[str])->str:
         sml_blocks.append(m.group(0))
         return chr(sml_escape_tag + len(sml_blocks) - 1)
+
     return SML_TAG_PATTERN.sub(_replace, text), sml_blocks
 
 def restore_sml(text:str, sml_blocks:list[str])->str:
@@ -2503,25 +2542,23 @@ def sml_token(tag:str, value:str|None=None, close:bool=False)->str:
         return f"[{tag}:{value}]"
     return f"[{tag}]"
 
-# FIX #2 + #4: normalize_text
-#   - assign emoji_pattern.sub() result back to text (was a no-op)
-#   - remove premature .strip() after each punctuation-reduction pass
-#     (the final ' '.join(text.split()) already normalizes whitespace)
 def normalize_text(text:str, lang:str, lang_iso1:str, tts_engine:str)->str:
+
     def _replace(match:re.Match)->str:
         token = match.group(1)
         for k, expansion in mapping.items():
             if token.lower() == k.lower():
                 return expansion
         return token  # fallback
+            
     # Remove emojis
     emoji_pattern = re.compile(f"[{''.join(emojis_list)}]+", flags=re.UNICODE)
-    text = emoji_pattern.sub('', text)  # FIX #2: was missing assignment
+    emoji_pattern.sub('', text)
     if lang in abbreviations_mapping:
         mapping = abbreviations_mapping[lang]
         # Sort keys by descending length so longer ones match first
         keys = sorted(mapping.keys(), key=len, reverse=True)
-        # Build a regex that only matches whole "words" (tokens) exactly
+        # Build a regex that only matches whole “words” (tokens) exactly
         pattern = re.compile(
             r'(?<!\w)(' + '|'.join(re.escape(k) for k in keys) + r')(?!\w)',
             flags=re.IGNORECASE
@@ -2556,13 +2593,11 @@ def normalize_text(text:str, lang:str, lang_iso1:str, tts_engine:str)->str:
     # Escape special characters in the punctuation list for regex
     pattern = '|'.join(map(re.escape, punctuation_split_hard_set))
     # Reduce multiple consecutive punctuations hard
-    # FIX #4: removed .strip() here — premature strip could eat trailing context
-    text = re.sub(rf'(\s*({pattern})\s*)+', r'\2 ', text)
+    text = re.sub(rf'(\s*({pattern})\s*)+', r'\2 ', text).strip()
     # Escape special characters in the punctuation list for regex
     pattern = '|'.join(map(re.escape, punctuation_split_soft_set))
     # Reduce multiple consecutive punctuations soft
-    # FIX #4: removed .strip() here
-    text = re.sub(rf'(\s*({pattern})\s*)+', r'\2 ', text)
+    text = re.sub(rf'(\s*({pattern})\s*)+', r'\2 ', text).strip()
     # Pattern 1: Add a space between UTF-8 characters and numbers
     text = re.sub(r'(?<=[\p{L}])(?=\d)|(?<=\d)(?=[\p{L}])', ' ', text)
     # Replace special chars with words
@@ -2726,6 +2761,7 @@ def realign_blocks(session_id:str, blocks_orig_old:dict)->bool:
         return False
 
 def convert_chapters2audio(session_id:str)->bool:
+
     def _reset_chapter_file(block_id:str)->None:
         ch_file = os.path.join(session['chapters_dir'], f'{block_id}.{default_audio_proc_format}')
         if os.path.exists(ch_file):
@@ -2733,6 +2769,7 @@ def convert_chapters2audio(session_id:str)->bool:
         block_dir = os.path.join(session['sentences_dir'], block_id)
         if os.path.isdir(block_dir):
             shutil.rmtree(block_dir)
+
     def _check_block_sentences(block_id:str, sentences:list)->set:
         block_dir = os.path.join(session['sentences_dir'], block_id)
         missing = set()
@@ -2743,8 +2780,10 @@ def convert_chapters2audio(session_id:str)->bool:
                 if not os.path.exists(sentence_file):
                     missing.add(j)
         return missing
+
     def _count_sentences(sentences:list)->int:
         return sum(1 for s in sentences if any(c.isalnum() for c in s.strip()))
+
     session = context.get_session(session_id)
     if not (session and session.get('id', False)):
         return False
@@ -2905,14 +2944,14 @@ def convert_chapters2audio(session_id:str)->bool:
                     if not combine_audio_sentences(session_id, chapter_audio_file, block_id, block_len):
                         show_alert(session_id, {'type': 'warning', 'msg': 'combine_audio_sentences() failed!'})
                         return False
-        #blocks_current['block_resume'] = 0
-        #blocks_current['sentence_resume'] = 0
-        session['blocks_current'] = blocks_current
-        save_db_stamp(session_id)
-        session['blocks_saved'] = copy.deepcopy(blocks_current)
-        save_json_blocks(session_id, 'blocks_saved')
-        conversion = True
-        return True
+            #blocks_current['block_resume'] = 0
+            #blocks_current['sentence_resume'] = 0
+            session['blocks_current'] = blocks_current
+            save_db_stamp(session_id)
+            session['blocks_saved'] = copy.deepcopy(blocks_current)
+            save_json_blocks(session_id, 'blocks_saved')
+            conversion = True
+            return True
     except Exception as e:
         DependencyError(e)
         exception_alert(session_id, f'convert_chapters2audio() error: {e}')
@@ -2969,9 +3008,11 @@ def combine_audio_sentences(session_id:str, file:str, block_id:str, sentence_cou
         return False
 
 def combine_audio_chapters(session_id:str)->list[str]|None:
+    
     def _on_progress(p:float, desc:str)->None:
         if is_gui_process:
             progress_bar(p / 100.0, desc=desc)
+
     def _generate_ffmpeg_metadata(part_chapters:list[tuple[str,str]], output_metadata_path:str, default_audio_proc_format:str, part_num:int=None)->str|bool:
         try:
             out_fmt = session['output_format']
@@ -3042,6 +3083,7 @@ def combine_audio_chapters(session_id:str)->list[str]|None:
             error = f'_generate_ffmpeg_metadata() Error: {e}'
             print(error)
             return False
+
     def _export_audio(combined_audio:str, metadata_file:str, final_file:str, block_indices:set=None, part_num:int=None)->bool:
         try:
             if session['cancellation_requested']:
@@ -3205,6 +3247,7 @@ def combine_audio_chapters(session_id:str)->list[str]|None:
             error = f'Export failed: {e}'
             print(error)
             return False
+
     try:
         session = context.get_session(session_id)
         if not (session and session.get('id', False)):
@@ -3326,9 +3369,11 @@ def combine_audio_chapters(session_id:str)->list[str]|None:
         return None
 
 def assemble_audio_chunks(txt_file:str, out_file:str, is_gui_process:bool)->bool:
+
     def _on_progress(p:float)->None:
         if is_gui_process:
             progress_bar(p / 100.0, desc='Assemble')
+
     try:
         total_duration = 0.0
         filepaths = []
@@ -3435,10 +3480,10 @@ def strip_invalid_filename_characters(filename:str, max_bytes:int=200)->str:
     name, ext = os.path.splitext(filename)
     if use_blocklist:
         # gradio_client > 1.13: remove only dangerous chars
-        name = re.sub(r'[<>:"/\\|?*\x00-\x1f\x7f`$!{}]', " ", name)
+        name = re.sub(r'[<>:"/\\|?*\x00-\x1f\x7f`$!{}]', "", name)
     else:
-        # gradio_client 1.13.x: keep only alnum + ".-,"
-        name = "".join(char for char in name if char.isalnum() or char in ".-,")
+        # gradio_client 1.13.x: keep only alnum + "._-, "
+        name = "".join(char for char in name if char.isalnum() or char in "._-, ")
     filename = name + ext
     while len(filename.encode()) > max_bytes and name:
         name = name[:-1]
@@ -3480,7 +3525,7 @@ def delete_unused_tmp_dirs(session_id:str, output_dir:str, days:int)->None:
         for dir_path in dir_array:
             if os.path.exists(dir_path) and os.path.isdir(dir_path):
                 for dir in os.listdir(dir_path):
-                    if dir in current_user_dirs:
+                    if dir in current_user_dirs:        
                         full_dir_path = os.path.join(dir_path, dir)
                         if os.path.isdir(full_dir_path):
                             try:
@@ -3529,12 +3574,13 @@ def translate_blocks(session_id:str, raw_blocks:list)->tuple:
         sml_patterns = re.compile(
             rf'''
             \[
-            \s*
-            (?P<close>/)?
-            \s*
-            (?P<tag>{tag_keys})
-            (?:\s*:\s*(?P<value>[^\]]*))?
-            \s*\]
+                \s*
+                (?P<close>/)?
+                \s*
+                (?P<tag>{tag_keys})
+                (?:\s*:\s*(?P<value>[^\]]*))?
+                \s*
+            \]
             ''',
             re.VERBOSE
         )
@@ -3583,434 +3629,434 @@ def convert_ebook(args:dict)->tuple:
                     if lang_dict:
                         args['language'] = lang_dict.pt3
                         args['language_iso1'] = lang_dict.pt1
-                    else:
-                        args['language_iso1'] = None
+                else:
+                    args['language_iso1'] = None
             except Exception as e:
                 pass
-        if args['language'] not in language_mapping.keys():
-            error = 'The language you provided is not (yet) supported'
-            return error, False
-        translate_to = args.get('translate') if args.get('translate') != args.get('language') else False
-        translate_enabled = bool(args.get('translate_enabled')) and bool(translate_to)
-        if translate_enabled:
-            try:
-                if len(translate_to) in (2, 3):
-                    ld_t = Lang(translate_to)
-                    if ld_t:
-                        translate_to = ld_t.pt3
-            except Exception:
-                pass
-            if translate_to not in language_mapping.keys():
-                error = f'--translate target language {translate_to} is not (yet) supported'
+            if args['language'] not in language_mapping.keys():
+                error = 'The language you provided is not (yet) supported'
                 return error, False
-            try:
-                target_iso1 = Lang(translate_to).pt1
-            except Exception:
-                target_iso1 = None
-            if not target_iso1:
-                error = f'--translate target {translate_to} has no iso639-1 mapping'
-                return error, False
-            args['translate_enabled'] = True
-            args['translate'] = translate_to
-            args['translate_iso1'] = target_iso1
-            final_language = str(args['translate'])
-        else:
-            args['translate_enabled'] = False
-            args['translate'] = None
-            args['translate_iso1'] = None
-            final_language = str(args['language'])
-        session['ebook_mode'] = args['ebook_mode']
-        if session['ebook_mode'] == ebook_modes['TEXT']:
-            if not args['ebook_textarea']:
-                error = 'Ebook textarea is empty.'
-                return error, False
-            text = args['ebook_textarea']
-            text_name = get_sanitized(text[:64])
-            text_name_hash = hashlib.md5(f'{text_name} {session_id}'.encode()).hexdigest()
-            text_filename = SML_TAG_PATTERN.sub('', text_name)
-            text_filename = get_sanitized(text_filename)
-            text_filename = f'{text_filename[:48]} {session_id}.txt'
-            text_filepath = os.path.join(tempfile.gettempdir(), text_filename)
-            with open(text_filepath, 'w', encoding='utf-8') as f:
-                f.write(text)
-            session['ebook_textarea'] = args['ebook_textarea']
-            session['ebook_textarea_src'] = text_filepath
-            ebook_file = strip_invalid_filename_characters(text_filename)
-            ebook_name = Path(text_filename).stem
-        else:
-            if not args.get('ebook_src'):
-                error = 'File source is empty.'
-                return error, False
-            elif not os.path.splitext(args['ebook_src'])[1]:
-                error = f"{args['ebook_src']} needs a format extension."
-                return error, False
-            elif not os.path.exists(args['ebook_src']):
-                error = 'File does not exist or Directory empty.'
-                return error, False
-            session['ebook_src'] = str(args['ebook_src'])
-            ebook_file = strip_invalid_filename_characters(Path(session['ebook_src']).name)
-            ebook_name = get_sanitized(Path(session['ebook_src']).stem)
-            ebook_name = strip_invalid_filename_characters(ebook_name)
-        if session['ebook_mode'] != ebook_modes['TEXT']:
-            if session.get('ebook_loaded') != session['ebook_src']:
-                session['blocks_orig'] = {}
-                session['blocks_current'] = {}
-                session['blocks_saved'] = {}
-                session['ebook_loaded'] = session['ebook_src']
-        print(f"Processing eBook file: {ebook_file}")
-        session['custom_model_dir'] = os.path.join(models_dir, '__sessions',f"model-{session_id}")
-        session['script_mode'] = str(args['script_mode']) if args.get('script_mode') is not None else NATIVE
-        session['is_gui_process'] = bool(args['is_gui_process'])
-        session['blocks_preview'] = bool(args['blocks_preview']) if args.get('blocks_preview') else False
-        session['device'] = str(args['device'])
-        session['language'] = str(args['language'])
-        session['language_iso1'] = str(args['language_iso1'])
-        session['translate_enabled'] = bool(args.get('translate_enabled', False))
-        session['translate'] = args.get('translate')
-        session['translate_iso1'] = args.get('translate_iso1')
-        session['tts_engine'] = str(args['tts_engine'])
-        session['custom_model'] = args['custom_model']
-        session['fine_tuned'] = str(args['fine_tuned'])
-        session['voice'] = args.get('voice', None)
-        session['xtts_temperature'] = float(args['xtts_temperature'])
-        session['xtts_length_penalty'] = float(args['xtts_length_penalty'])
-        session['xtts_num_beams'] = int(args['xtts_num_beams'])
-        session['xtts_repetition_penalty'] = float(args['xtts_repetition_penalty'])
-        session['xtts_top_k'] = int(args['xtts_top_k'])
-        session['xtts_top_p'] = float(args['xtts_top_p'])
-        session['xtts_speed'] = float(args['xtts_speed'])
-        session['xtts_enable_text_splitting'] = bool(args['xtts_enable_text_splitting'])
-        session['bark_text_temp'] = float(args['bark_text_temp'])
-        session['bark_waveform_temp'] = float(args['bark_waveform_temp'])
-        session['output_format'] = str(args['output_format'])
-        session['output_channel'] = str(args['output_channel'])
-        session['output_split'] = bool(args['output_split'])
-        session['output_split_hours'] = args['output_split_hours']if args['output_split_hours'] is not None else default_output_split_hours
-        session['model_cache'] = f"{session['tts_engine']}-{session['fine_tuned']}"
-        session['session_dir'] = os.path.join(tmp_dir, f'proc-{session_id}')
-        session['status'] = status_tags['EDIT'] if session['blocks_preview'] else status_tags['CONVERTING']
-        lang_prfx = (f' {final_language}' if session.get('translate_enabled') else '')
-        session['process_dir'] = os.path.join(session['session_dir'], hashlib.md5((ebook_name + lang_prfx).encode()).hexdigest())
-        session['chapters_dir'] = os.path.join(session['process_dir'], 'chapters')
-        session['sentences_dir'] = os.path.join(session['chapters_dir'], 'sentences')
-        cleanup_models_cache()
-        if session['is_gui_process']:
-            session['final_name'] = ebook_name + lang_prfx + '.' + session['output_format']
-        else:
-            session['system'] = DEVICE_SYSTEM
-            session['audiobooks_dir'] = os.path.abspath(args['output_dir']) if args.get('output_dir') is not None else os.path.join(audiobooks_cli_dir, f'cli-{session_id}')
-            session['final_name'] = os.path.join(session['audiobooks_dir'], ebook_name + lang_prfx + '.' + session['output_format'])
-        session['voice_dir'] = os.path.join(voices_dir, 'sessions', f'voice-{session_id}', final_language)
-        session['abs_url'] = str(args.get('abs_url', ''))
-        session['abs_api_token'] = str(args.get('abs_api_token', ''))
-        session['abs_library'] = str(args.get('abs_library', ''))
-        os.makedirs(session['voice_dir'], exist_ok=True)
-        audio_pre_final_exist = os.path.exists(os.path.join(session['process_dir'], ebook_name + '.' + default_audio_proc_format))
-        audio_sentences_exist = any(Path(session['sentences_dir']).rglob(f'*.{default_audio_proc_format}'))
-        if audio_pre_final_exist or audio_sentences_exist:
-            msg = f"Warning! audio sentences or final file {ebook_name} of this conversion already exists! "
-            # audio exists, so the previous global voice matters: warn before the prompt,
-            # since [r]esume with a different global voice reconverts the affected blocks.
-            voice_note = build_voice_change_note(session['process_dir'], session.get('voice'), html=False)
-            if voice_note:
-                msg += voice_note
-            print(msg)
-            while True:
-                choice = input("[s]kip / [r]esume / [d]elete and convert again: ").strip().lower()
-                if choice in ('s', 'r', 'd'):
-                    break
-                print("Please enter 's', 'r' or 'd'.")
-            if choice == 'r':
-                if audio_pre_final_exist:
-                    os.unlink(audio_pre_final_exist)
-                if os.path.exists(session['final_name']):
-                    os.unlink(session['final_name'])
-            elif choice == 'd':
-                delete_folder(session['process_dir'])
-            elif choice == 's':
-                msg = 'Conversion skipped.'
-                return msg, True
-        if error is None:
-            delete_unused_tmp_dirs(session_id, audiobooks_cli_dir, tmp_expire)
-        if session['custom_model'] is not None:
-            if not os.path.exists(session['custom_model_dir']):
-                os.makedirs(session['custom_model_dir'], exist_ok=True)
-            custom_src_path = Path(session['custom_model'])
-            custom_src_name = custom_src_path.stem
-            if not os.path.exists(os.path.join(session['custom_model_dir'], custom_src_name)):
+            translate_to = args.get('translate') if args.get('translate') != args.get('language') else False
+            translate_enabled = bool(args.get('translate_enabled')) and bool(translate_to)
+            if translate_enabled:
                 try:
-                    if analyze_uploaded_file(session['custom_model'], default_engine_settings[session['tts_engine']]['files']):
-                        model = extract_custom_model(session_id)
-                        if model is not None:
-                            session['custom_model'] = model
-                    else:
-                        error = f"{model} could not be extracted or mandatory files are missing"
-                else:
-                    error = f'{os.path.basename(f)} is not a valid model or some required files are missing'
-                except ModuleNotFoundError as e:
-                    error = f"No presets module for TTS engine '{session['tts_engine']}': {e}"
-        if session.get('voice'):
-            voice_name = os.path.splitext(os.path.basename(session['voice']))[0].replace('&', 'And')
-            voice_name = get_sanitized(voice_name)
-            final_voice_file = os.path.join(session['voice_dir'], f'{voice_name}.wav')
-            if not os.path.exists(final_voice_file):
-                extractor = VoiceExtractor(session, session['voice'], voice_name)
-                voice_status, msg = extractor.extract_voice()
-                if voice_status:
-                    session['voice'] = final_voice_file
-                else:
-                    error = f'VoiceExtractor.extract_voice() failed! {msg}'
-        if error is None:
-            if prepare_dirs(session_id):
-                session['ebook'] = os.path.join(session['process_dir'], ebook_file)
-                shutil.copy((session['ebook_textarea_src'] if session['ebook_mode'] == ebook_modes['TEXT'] else session['ebook_src']), session['ebook'])
-                session['filename_noext'] = os.path.splitext(os.path.basename(session['ebook']))[0]
-                msg = ''
-                msg_extra = ''
-                if session['device'] == devices['CUDA']['proc']:
-                    if not devices['CUDA']['found']:
-                        session['device'] = devices['CPU']['proc']
-                        msg += f'CUDA not supported by the Torch installed!<br/>Read {default_gpu_wiki}<br/>Switching to CPU'
-                elif session['device'] == devices['JETSON']['proc'] or session['device'] == devices['JETSON']['proc']:
-                    if not devices['JETSON']['found']:
-                        session['device'] = devices['CPU']['proc']
-                        msg += f'JETSON CUDA not supported by the Torch installed!<br/>Read {default_gpu_wiki}<br/>Switching to CPU'
-                elif session['device'] == devices['MPS']['proc']:
-                    if not devices['MPS']['found']:
-                        session['device'] = devices['CPU']['proc']
-                        msg += f'MPS not supported by the Torch installed!<br/>Read {default_gpu_wiki}<br/>Switching to CPU'
-                elif session['device'] == devices['ROCM']['proc']:
-                    if not devices['ROCM']['found']:
-                        session['device'] = devices['CPU']['proc']
-                        msg += f'ROCM not supported by the Torch installed!<br/>Read {default_gpu_wiki}<br/>Switching to CPU'
-                elif session['device'] == devices['XPU']['proc']:
-                    # devices['XPU']['found'] is a static capability flag: on an
-                    # image built for xpu it stays True even when no Intel GPU is
-                    # visible at runtime (Level Zero driver absent, /dev/dri not
-                    # passed to the container). Unlike CUDA that never trips the
-                    # branch below, so the failure surfaces as a crash inside
-                    # TTSManager() instead of a switch to CPU. Ask torch directly.
-                    xpu_error = None
-                    if not devices['XPU']['found']:
-                        xpu_error = 'XPU not supported by the Torch installed!'
-                    else:
-                        try:
-                            import torch
-                            if not (hasattr(torch, 'xpu') and torch.xpu.is_available()):
-                                xpu_error = 'XPU not available: no Intel GPU visible to Torch!'
-                        except Exception as e:
-                            xpu_error = f'XPU not available: runtime probe failed ({e!r})'
-                    if xpu_error is not None:
-                        session['device'] = devices['CPU']['proc']
-                        msg += f'{xpu_error}<br/>Read {default_gpu_wiki}<br/>Switching to CPU'
-                if session['device'] == devices['CPU']['proc']:
-                    os.environ['OMP_NUM_THREADS'] = '4'
-                vram_dict = VRAMDetector().detect_vram(session['device'], session['script_mode'])
-                print(f'vram_dict: {vram_dict}')
-                total_vram_gb = vram_dict.get('total_vram_gb', 0)
-                detected_free_vram_gb = vram_dict.get('free_vram_gb', 0)
-                session['free_vram_gb'] = detected_free_vram_gb
-                if session['free_vram_gb'] == 0:
-                    msg_extra += f"<br/>Memory capacity not detected! restrict to {session['free_vram_gb']}GB max"
-                else:
-                    msg_extra += f"<br/>Free Memory available: {session['free_vram_gb']}GB"
-                if session['free_vram_gb'] < default_engine_settings[session['tts_engine']]['rating']['VRAM']:
-                    msg_extra += f"<br/>Free Memory {session['free_vram_gb']} is lower than VRAM/RAM {default_engine_settings[session['tts_engine']]['rating']['VRAM']}GB required!<br/>It will probably crash the conversion!"
-                if session['free_vram_gb'] > 4.0:
-                    if session['tts_engine'] == TTS_ENGINES['BARK']:
-                        os.environ['SUNO_USE_SMALL_MODELS'] = 'FALSE'
-                if session['tts_engine'] == TTS_ENGINES['BARK']:
-                    if session['free_vram_gb'] < 12.0:
-                        os.environ['SUNO_OFFLOAD_CPU'] = 'TRUE'
-                        os.environ['SUNO_USE_SMALL_MODELS'] = "TRUE"
-                        msg_extra += f'<br/>Switching BARK to SMALL models'
-                    else:
-                        os.environ['SUNO_OFFLOAD_CPU'] = 'FALSE'
-                        os.environ['SUNO_USE_SMALL_MODELS'] = 'FALSE'
-                if msg == '':
-                    msg_extra = f"Using {session['device'].upper()}" + msg_extra
-                device_vram_required = default_engine_settings[session['tts_engine']]['rating']['RAM'] if session['device'] == devices['CPU']['proc'] else default_engine_settings[session['tts_engine']]['rating']['VRAM']
-                if float(total_vram_gb) >= float(device_vram_required):
-                    if msg:
-                        show_alert(session_id, {"type": "warning", "msg": msg + msg_extra})
-                    else:
-                        show_alert(session_id, {"type": "info", "msg": msg_extra})
-                session['epub_path'] = os.path.join(session['process_dir'], f" {session['filename_noext']}.epub")
-                session['blocks_orig_json'] = os.path.join(session['process_dir'], f"{file_prefixes['clone']}{session['filename_noext']}.json")
-                session['blocks_saved_json']   = os.path.join(session['process_dir'], f"{file_prefixes['saved']}{session['filename_noext']}.json")
-                session['blocks_current_db']   = os.path.join(session['process_dir'], f"{file_prefixes['current']}{session['filename_noext']}.db")
-                ok_checksum, error = compare_checksums(session_id)
-                blocks_orig_old = {}
-                if not ok_checksum or not os.path.exists(session['epub_path']):
-                    result_epub = convert2epub(session_id)
-                    if result_epub:
-                        if os.path.exists(session['epub_path']):
-                            if os.path.exists(session['blocks_orig_json']):
-                                # keep the previous parse as baseline to realign block ids after the new parse
-                                blocks_orig_old = load_json_blocks(session['blocks_orig_json'])
-                                os.unlink(session['blocks_orig_json'])
-                            if not blocks_orig_old.get('blocks'):
-                                # no baseline to realign against: hard reset as before
-                                blocks_orig_old = {}
-                                if os.path.exists(session['blocks_saved_json']):
-                                    os.unlink(session['blocks_saved_json'])
-                                db = session['blocks_current_db']
-                                for f in (db, db + '-wal', db + '-shm'):
-                                    if os.path.exists(f):
-                                        os.unlink(f)
-                            msg = f"NOTE: process folder {session['process_dir']} is strictly used for internal tasks and has nothing to do with the final conversion."
-                            print(msg)
-                        else:
-                            error = f"convert2epub() {session['epub_path']} does not exists! check write permissions."
-                    else:
-                        error = 'convert2epub() error: could not convert to epub file!'
+                    if len(translate_to) in (2, 3):
+                        ld_t = Lang(translate_to)
+                        if ld_t:
+                            translate_to = ld_t.pt3
+                except Exception:
+                    pass
+                if translate_to not in language_mapping.keys():
+                    error = f'--translate target language {translate_to} is not (yet) supported'
+                    return error, False
+                try:
+                    target_iso1 = Lang(translate_to).pt1
+                except Exception:
+                    target_iso1 = None
+                if not target_iso1:
+                    error = f'--translate target {translate_to} has no iso639-1 mapping'
+                    return error, False
+                args['translate_enabled'] = True
+                args['translate'] = translate_to
+                args['translate_iso1'] = target_iso1
+                final_language = str(args['translate'])
+            else:
+                args['translate_enabled'] = False
+                args['translate'] = None
+                args['translate_iso1'] = None
+                final_language = str(args['language'])
+            session['ebook_mode'] = args['ebook_mode']
+            if session['ebook_mode'] == ebook_modes['TEXT']:
+                if not args['ebook_textarea']:
+                    error = 'Ebook textarea is empty.'
+                    return error, False
+                text = args['ebook_textarea']
+                text_name = get_sanitized(text[:64])
+                text_name_hash = hashlib.md5(f'{text_name}_{session_id}'.encode()).hexdigest()
+                text_filename = SML_TAG_PATTERN.sub('', text_name)
+                text_filename = get_sanitized(text_filename)
+                text_filename = f'{text_filename[:48]}_{session_id}.txt'
+                text_filepath = os.path.join(tempfile.gettempdir(), text_filename)
+                with open(text_filepath, 'w', encoding='utf-8') as f:
+                    f.write(text)
+                session['ebook_textarea'] = args['ebook_textarea']
+                session['ebook_textarea_src'] = text_filepath
+                ebook_file = strip_invalid_filename_characters(text_filename)
+                ebook_name = Path(text_filename).stem
+            else:
+                if not args.get('ebook_src'):
+                    error = 'File source is empty.'
+                    return error, False
+                elif not os.path.splitext(args['ebook_src'])[1]:
+                    error = f"{args['ebook_src']} needs a format extension."
+                    return error, False
+                elif not os.path.exists(args['ebook_src']):
+                    error = 'File does not exist or Directory empty.'
+                    return error, False
+                session['ebook_src'] = str(args['ebook_src'])
+                ebook_file = strip_invalid_filename_characters(Path(session['ebook_src']).name)
+                ebook_name = get_sanitized(Path(session['ebook_src']).stem)
+            ebook_name = strip_invalid_filename_characters(ebook_name)
+            if session['ebook_mode'] != ebook_modes['TEXT']:
+                if session.get('ebook_loaded') != session['ebook_src']:
+                    session['blocks_orig'] = {}
+                    session['blocks_current'] = {}
+                    session['blocks_saved'] = {}
+                    session['ebook_loaded'] = session['ebook_src']
+            print(f"Processing eBook file: {ebook_file}")
+            session['custom_model_dir'] = os.path.join(models_dir, '__sessions',f"model-{session_id}")
+            session['script_mode'] = str(args['script_mode']) if args.get('script_mode') is not None else NATIVE
+            session['is_gui_process'] = bool(args['is_gui_process'])
+            session['blocks_preview'] = bool(args['blocks_preview']) if args.get('blocks_preview') else False
+            session['device'] = str(args['device'])
+            session['language'] = str(args['language'])
+            session['language_iso1'] = str(args['language_iso1'])
+            session['translate_enabled'] = bool(args.get('translate_enabled', False))
+            session['translate'] = args.get('translate')
+            session['translate_iso1'] = args.get('translate_iso1')
+            session['tts_engine'] = str(args['tts_engine'])
+            session['custom_model'] =  args['custom_model']
+            session['fine_tuned'] = str(args['fine_tuned'])
+            session['voice'] = args.get('voice', None)
+            session['xtts_temperature'] =  float(args['xtts_temperature'])
+            session['xtts_length_penalty'] = float(args['xtts_length_penalty'])
+            session['xtts_num_beams'] = int(args['xtts_num_beams'])
+            session['xtts_repetition_penalty'] = float(args['xtts_repetition_penalty'])
+            session['xtts_top_k'] =  int(args['xtts_top_k'])
+            session['xtts_top_p'] = float(args['xtts_top_p'])
+            session['xtts_speed'] = float(args['xtts_speed'])
+            session['xtts_enable_text_splitting'] = bool(args['xtts_enable_text_splitting'])
+            session['bark_text_temp'] =  float(args['bark_text_temp'])
+            session['bark_waveform_temp'] =  float(args['bark_waveform_temp'])
+            session['output_format'] = str(args['output_format'])
+            session['output_channel'] = str(args['output_channel'])
+            session['output_split'] = bool(args['output_split'])
+            session['output_split_hours'] = args['output_split_hours']if args['output_split_hours'] is not None else default_output_split_hours
+            session['model_cache'] = f"{session['tts_engine']}-{session['fine_tuned']}"
+            session['session_dir'] = os.path.join(tmp_dir, f'proc-{session_id}')
+            session['status'] = status_tags['EDIT'] if session['blocks_preview'] else status_tags['CONVERTING'] 
+            lang_prfx = (f'_{final_language}' if session.get('translate_enabled') else '')
+            session['process_dir'] = os.path.join(session['session_dir'], hashlib.md5((ebook_name + lang_prfx).encode()).hexdigest())
+            session['chapters_dir'] = os.path.join(session['process_dir'], 'chapters')
+            session['sentences_dir'] = os.path.join(session['chapters_dir'], 'sentences')
+            cleanup_models_cache()
+            if session['is_gui_process']:
+                session['final_name'] = ebook_name + lang_prfx + '.' + session['output_format']
+            else:
+                session['system'] = DEVICE_SYSTEM
+                session['audiobooks_dir'] = os.path.abspath(args['output_dir']) if args.get('output_dir') is not None else os.path.join(audiobooks_cli_dir, f'cli-{session_id}')
+                session['final_name'] = os.path.join(session['audiobooks_dir'], ebook_name + lang_prfx + '.' + session['output_format'])
+                session['voice_dir'] = os.path.join(voices_dir, '__sessions', f'voice-{session_id}', final_language)
+                session['abs_url'] = str(args.get('abs_url', ''))
+                session['abs_api_token'] = str(args.get('abs_api_token', ''))
+                session['abs_library'] = str(args.get('abs_library', ''))
+                os.makedirs(session['voice_dir'], exist_ok=True)
+                audio_pre_final_exist = os.path.exists(os.path.join(session['process_dir'], ebook_name + '.' + default_audio_proc_format))
+                audio_sentences_exist = any(Path(session['sentences_dir']).rglob(f'*.{default_audio_proc_format}'))
+                if audio_pre_final_exist or audio_sentences_exist:
+                    msg = f"Warning! audio sentences or final file {ebook_name} of this conversion already exists!"
+                    # audio exists, so the previous global voice matters: warn before the prompt,
+                    # since [r]esume with a different global voice reconverts the affected blocks.
+                    voice_note = build_voice_change_note(session['process_dir'], session.get('voice'), html=False)
+                    if voice_note:
+                        msg += voice_note
+                    print(msg)
+                    while True:
+                        choice = input("[s]kip / [r]esume / [d]elete and convert again: ").strip().lower()
+                        if choice in ('s', 'r', 'd'):
+                            break
+                        print("Please enter 's', 'r' or 'd'.")
+                    if choice == 'r':
+                        if audio_pre_final_exist:
+                            os.unlink(audio_pre_final_exist)
+                        if os.path.exists(session['final_name']):
+                            os.unlink(session['final_name'])
+                    elif choice == 'd':
+                        delete_folder(session['process_dir'])
+                    elif choice == 's':
+                        msg = 'Conversion skipped.'
+                        return msg, True
                 if error is None:
-                    missing_orig_json = True
-                    is_changed = False
-                    blocks_orig = {}
-                    if os.path.exists(session['blocks_orig_json']):
-                        missing_orig_json = False
-                        blocks_orig = load_json_blocks(session['blocks_orig_json'])
-                    if blocks_orig:
-                        blocks = blocks_orig.get('blocks', [])
-                        new_blocks = []
-                        for block in blocks:
-                            if any(c.isalnum() for c in block.get('text','')):
-                                if not block.get('id'):
-                                    block['id'] = str(uuid.uuid4())
-                                    is_changed = True
-                                new_blocks.append(block)
-                        blocks_orig['blocks'] = new_blocks
-                        session['blocks_orig'] = blocks_orig
-                        if is_changed:
-                            save_json_blocks(session_id, 'blocks_orig')
-                    # load previous work unconditionally: it must survive a source file change
-                    # so realign_blocks() has something to migrate. the positional id backfill
-                    # is only valid within one parse, never across a re-parse (realign's job).
-                    if os.path.exists(session['blocks_saved_json']):
-                        blocks_saved = load_json_blocks(session['blocks_saved_json'])
-                        if blocks_saved:
-                            session['blocks_saved'] = blocks_saved
-                            if is_changed and not missing_orig_json:
-                                blocks = blocks_saved.get('blocks', [])
-                                for i, block in enumerate(blocks):
-                                    if i < len(blocks_orig['blocks']):
-                                        block['id'] = blocks_orig['blocks'][i]['id']
-                                blocks_saved['blocks'] = blocks
-                                session['blocks_saved'] = blocks_saved
-                                save_json_blocks(session_id, 'blocks_saved')
-                    if os.path.exists(session['blocks_current_db']):
-                        blocks_current = load_db_blocks(session['blocks_current_db'])
-                        if blocks_current:
-                            session['blocks_current'] = blocks_current
-                            if is_changed and not missing_orig_json:
-                                blocks = blocks_current.get('blocks', [])
-                                for i, block in enumerate(blocks):
-                                    if i < len(blocks_orig['blocks']):
-                                        block['id'] = blocks_orig['blocks'][i]['id']
-                                blocks_current['blocks'] = blocks
-                                session['blocks_current'] = blocks_current
-                                save_db_blocks(session_id)
-                    epubBook = epub.read_epub(session['epub_path'], {'ignore_ncx': True})
-                    if epubBook:
-                        metadata = dict(session['metadata'])
-                        for key, value in metadata.items():
-                            data = epubBook.get_metadata('DC', key)
-                            if data:
-                                for value, attributes in data:
-                                    metadata[key] = value
-                        metadata['language'] = final_language
-                        metadata['title'] = metadata['title'] or Path(session['ebook']).stem.replace(' ', ' ')
-                        metadata['creator'] = False if not metadata['creator'] or metadata['creator'] == 'Unknown' else metadata['creator']
-                        session['metadata'] = metadata
-                        try:
-                            if len(session['metadata']['language']) == 2:
-                                lang_dict = Lang(final_language)
-                                if lang_dict:
-                                    session['metadata']['language'] = lang_dict.pt3
-                        except Exception as e:
-                            pass
-                        if not session.get('translate_enabled'):
-                            if session['metadata']['language'] != session['language']:
-                                error = f"WARNING!!! language selected {session['language']} differs from the EPUB file language {session['metadata']['language']}"
-                                show_alert(session_id, {'type': 'warning', 'msg': error})
-                        is_lang_in_tts_engine = (
-                            session.get('tts_engine') in default_engine_settings and
-                            final_language in default_engine_settings[session['tts_engine']].get('languages', {})
-                        )
-                        if is_lang_in_tts_engine:
-                            session['cover'] = get_cover(epubBook, session_id)
-                            if session.get('cover', False):
-                                if missing_orig_json:
-                                    raw_blocks = get_blocks(session_id, epubBook)
-                                    if raw_blocks and session.get('translate_enabled'):
-                                        raw_blocks, error = translate_blocks(session_id, list(raw_blocks))
-                                        if error is not None:
-                                            return error, False
-                                    if raw_blocks:
-                                        session['blocks_orig'] = {
-                                            "page": 0,
-                                            "block_resume": 0,
-                                            "sentence_resume": 0,
-                                            "voice": session['voice'],
-                                            "tts_engine": session['tts_engine'],
-                                            "fine_tuned": session['fine_tuned'],
-                                            "blocks": [
-                                                {
-                                                    "id": str(uuid.uuid4()),
-                                                    "expand": False,
-                                                    "keep": True,
-                                                    "text": t,
+                    delete_unused_tmp_dirs(session_id, audiobooks_cli_dir, tmp_expire)
+                    if session['custom_model'] is not None:
+                        if not os.path.exists(session['custom_model_dir']):
+                            os.makedirs(session['custom_model_dir'], exist_ok=True)
+                        custom_src_path = Path(session['custom_model'])
+                        custom_src_name = custom_src_path.stem
+                        if not os.path.exists(os.path.join(session['custom_model_dir'], custom_src_name)):
+                            try:
+                                if analyze_uploaded_file(session['custom_model'], default_engine_settings[session['tts_engine']]['files']):
+                                    model = extract_custom_model(session_id)
+                                    if model is not None:
+                                        session['custom_model'] = model
+                                    else:
+                                        error = f"{model} could not be extracted or mandatory files are missing"
+                                else:
+                                    error = f'{os.path.basename(f)} is not a valid model or some required files are missing'
+                            except ModuleNotFoundError as e:
+                                error = f"No presets module for TTS engine '{session['tts_engine']}': {e}"
+                    if session.get('voice'):
+                        voice_name = os.path.splitext(os.path.basename(session['voice']))[0].replace('&', 'And')
+                        voice_name = get_sanitized(voice_name)
+                        final_voice_file = os.path.join(session['voice_dir'], f'{voice_name}.wav')
+                        if not os.path.exists(final_voice_file):
+                            extractor = VoiceExtractor(session, session['voice'], voice_name)
+                            voice_status, msg = extractor.extract_voice()
+                            if voice_status:
+                                session['voice'] = final_voice_file
+                            else:
+                                error = f'VoiceExtractor.extract_voice() failed! {msg}'
+            if error is None:
+                if prepare_dirs(session_id):
+                    session['ebook'] = os.path.join(session['process_dir'], ebook_file)
+                    shutil.copy((session['ebook_textarea_src'] if session['ebook_mode'] == ebook_modes['TEXT'] else session['ebook_src']), session['ebook'])
+                    session['filename_noext'] = os.path.splitext(os.path.basename(session['ebook']))[0]
+                    msg = ''
+                    msg_extra = ''                      
+                    if session['device'] == devices['CUDA']['proc']:
+                        if not devices['CUDA']['found']:
+                            session['device'] = devices['CPU']['proc']
+                            msg += f'CUDA not supported by the Torch installed!<br/>Read {default_gpu_wiki}<br/>Switching to CPU'
+                    elif session['device'] == devices['JETSON']['proc'] or session['device'] == devices['JETSON']['proc']:
+                        if not devices['JETSON']['found']:
+                            session['device'] = devices['CPU']['proc']
+                            msg += f'JETSON CUDA not supported by the Torch installed!<br/>Read {default_gpu_wiki}<br/>Switching to CPU'
+                    elif session['device'] == devices['MPS']['proc']:
+                        if not devices['MPS']['found']:
+                            session['device'] = devices['CPU']['proc']
+                            msg += f'MPS not supported by the Torch installed!<br/>Read {default_gpu_wiki}<br/>Switching to CPU'
+                    elif session['device'] == devices['ROCM']['proc']:
+                        if not devices['ROCM']['found']:
+                            session['device'] = devices['CPU']['proc']
+                            msg += f'ROCM not supported by the Torch installed!<br/>Read {default_gpu_wiki}<br/>Switching to CPU'
+                    elif session['device'] == devices['XPU']['proc']:
+                        # devices['XPU']['found'] is a static capability flag: on an
+                        # image built for xpu it stays True even when no Intel GPU is
+                        # visible at runtime (Level Zero driver absent, /dev/dri not
+                        # passed to the container). Unlike CUDA that never trips the
+                        # branch below, so the failure surfaces as a crash inside
+                        # TTSManager() instead of a switch to CPU. Ask torch directly.
+                        xpu_error = None
+                        if not devices['XPU']['found']:
+                            xpu_error = 'XPU not supported by the Torch installed!'
+                        else:
+                            try:
+                                import torch
+                                if not (hasattr(torch, 'xpu') and torch.xpu.is_available()):
+                                    xpu_error = 'XPU not available: no Intel GPU visible to Torch!'
+                            except Exception as e:
+                                xpu_error = f'XPU not available: runtime probe failed ({e!r})'
+                        if xpu_error is not None:
+                            session['device'] = devices['CPU']['proc']
+                            msg += f'{xpu_error}<br/>Read {default_gpu_wiki}<br/>Switching to CPU'
+                    if session['device'] == devices['CPU']['proc']:
+                        os.environ['OMP_NUM_THREADS'] = '4'
+                    vram_dict = VRAMDetector().detect_vram(session['device'], session['script_mode'])
+                    print(f'vram_dict: {vram_dict}')
+                    total_vram_gb = vram_dict.get('total_vram_gb', 0)
+                    detected_free_vram_gb = vram_dict.get('free_vram_gb', 0)
+                    session['free_vram_gb'] = detected_free_vram_gb
+                    if session['free_vram_gb'] == 0:
+                        msg_extra += f"<br/>Memory capacity not detected! restrict to {session['free_vram_gb']}GB max"
+                    else:
+                        msg_extra += f"<br/>Free Memory available: {session['free_vram_gb']}GB"
+                        if session['free_vram_gb'] < default_engine_settings[session['tts_engine']]['rating']['VRAM']:
+                            msg_extra += f"<br/>Free Memory {session['free_vram_gb']} is lower than VRAM/RAM {default_engine_settings[session['tts_engine']]['rating']['VRAM']}GB required!<br/>It will probably crash the conversion!"
+                        if session['free_vram_gb'] > 4.0:
+                            if session['tts_engine'] == TTS_ENGINES['BARK']:
+                                os.environ['SUNO_USE_SMALL_MODELS'] = 'FALSE'  
+                    if session['tts_engine'] == TTS_ENGINES['BARK']:
+                        if session['free_vram_gb'] < 12.0:
+                            os.environ['SUNO_OFFLOAD_CPU'] = 'TRUE'
+                            os.environ['SUNO_USE_SMALL_MODELS'] = "TRUE"
+                            msg_extra += f'<br/>Switching BARK to SMALL models'
+                        else:
+                            os.environ['SUNO_OFFLOAD_CPU'] = 'FALSE'
+                            os.environ['SUNO_USE_SMALL_MODELS'] = 'FALSE'
+                    if msg == '':
+                        msg_extra = f"Using {session['device'].upper()}" + msg_extra
+                    device_vram_required = default_engine_settings[session['tts_engine']]['rating']['RAM'] if session['device'] == devices['CPU']['proc'] else default_engine_settings[session['tts_engine']]['rating']['VRAM']
+                    if float(total_vram_gb) >= float(device_vram_required):
+                        if msg:
+                            show_alert(session_id, {"type": "warning", "msg": msg + msg_extra})
+                        else:
+                            show_alert(session_id, {"type": "info", "msg": msg_extra})
+                        session['epub_path'] = os.path.join(session['process_dir'], f"__{session['filename_noext']}.epub")
+                        session['blocks_orig_json'] = os.path.join(session['process_dir'], f"{file_prefixes['clone']}{session['filename_noext']}.json")
+                        session['blocks_saved_json']   = os.path.join(session['process_dir'], f"{file_prefixes['saved']}{session['filename_noext']}.json")
+                        session['blocks_current_db']   = os.path.join(session['process_dir'], f"{file_prefixes['current']}{session['filename_noext']}.db")
+                        ok_checksum, error = compare_checksums(session_id)
+                        blocks_orig_old = {}
+                        if not ok_checksum or not os.path.exists(session['epub_path']):
+                            result_epub = convert2epub(session_id)
+                            if result_epub:
+                                if os.path.exists(session['epub_path']):
+                                    if os.path.exists(session['blocks_orig_json']):
+                                        # keep the previous parse as baseline to realign block ids after the new parse
+                                        blocks_orig_old = load_json_blocks(session['blocks_orig_json'])
+                                        os.unlink(session['blocks_orig_json'])
+                                    if not blocks_orig_old.get('blocks'):
+                                        # no baseline to realign against: hard reset as before
+                                        blocks_orig_old = {}
+                                        if os.path.exists(session['blocks_saved_json']):
+                                            os.unlink(session['blocks_saved_json'])
+                                        db = session['blocks_current_db']
+                                        for f in (db, db + '-wal', db + '-shm'):
+                                            if os.path.exists(f):
+                                                os.unlink(f)
+                                    msg = f"NOTE: process folder {session['process_dir']} is strictly used for internal tasks and has nothing to do with the final conversion."
+                                    print(msg)
+                                else:
+                                    error = f"convert2epub() {session['epub_path']} does not exists! check write permissions."
+                            else:
+                                error = 'convert2epub() error: could not convert to epub file!'
+                        if error is None:
+                            missing_orig_json = True
+                            is_changed = False
+                            blocks_orig = {}
+                            if os.path.exists(session['blocks_orig_json']):
+                                missing_orig_json = False
+                                blocks_orig = load_json_blocks(session['blocks_orig_json'])
+                                if blocks_orig:
+                                    blocks = blocks_orig.get('blocks', [])
+                                    new_blocks = []
+                                    for block in blocks:
+                                        if any(c.isalnum() for c in block.get('text','')):
+                                            if not block.get('id'):
+                                                block['id'] = str(uuid.uuid4())
+                                                is_changed = True
+                                            new_blocks.append(block)
+                                    blocks_orig['blocks'] = new_blocks
+                                    session['blocks_orig'] = blocks_orig
+                                if is_changed:
+                                    save_json_blocks(session_id, 'blocks_orig')
+                            # load previous work unconditionally: it must survive a source file change
+                            # so realign_blocks() has something to migrate. the positional id backfill
+                            # is only valid within one parse, never across a re-parse (realign's job).
+                            if os.path.exists(session['blocks_saved_json']):
+                                blocks_saved = load_json_blocks(session['blocks_saved_json'])
+                                if blocks_saved:
+                                    session['blocks_saved'] = blocks_saved
+                                    if is_changed and not missing_orig_json:
+                                        blocks = blocks_saved.get('blocks', [])
+                                        for i, block in enumerate(blocks):
+                                            if i < len(blocks_orig['blocks']):
+                                                block['id'] = blocks_orig['blocks'][i]['id']
+                                        blocks_saved['blocks'] = blocks
+                                        session['blocks_saved'] = blocks_saved
+                                        save_json_blocks(session_id, 'blocks_saved')
+                            if os.path.exists(session['blocks_current_db']):
+                                blocks_current = load_db_blocks(session['blocks_current_db'])
+                                if blocks_current:
+                                    session['blocks_current'] = blocks_current
+                                    if is_changed and not missing_orig_json:
+                                        blocks = blocks_current.get('blocks', [])
+                                        for i, block in enumerate(blocks):
+                                            if i < len(blocks_orig['blocks']):
+                                                block['id'] = blocks_orig['blocks'][i]['id']
+                                        blocks_current['blocks'] = blocks
+                                        session['blocks_current'] = blocks_current
+                                        save_db_blocks(session_id)
+                            epubBook = epub.read_epub(session['epub_path'], {'ignore_ncx': True})
+                            if epubBook:
+                                metadata = dict(session['metadata'])
+                                for key, value in metadata.items():
+                                    data = epubBook.get_metadata('DC', key)
+                                    if data:
+                                        for value, attributes in data:
+                                            metadata[key] = value
+                                metadata['language'] = final_language
+                                metadata['title'] = metadata['title'] or Path(session['ebook']).stem.replace('_', ' ')
+                                metadata['creator'] = False if not metadata['creator'] or metadata['creator'] == 'Unknown' else metadata['creator']
+                                session['metadata'] = metadata
+                                try:
+                                    if len(session['metadata']['language']) == 2:
+                                        lang_dict = Lang(final_language)
+                                        if lang_dict:
+                                            session['metadata']['language'] = lang_dict.pt3
+                                except Exception as e:
+                                    pass
+                                if not session.get('translate_enabled'):
+                                    if session['metadata']['language'] != session['language']:
+                                        error = f"WARNING!!! language selected {session['language']} differs from the EPUB file language {session['metadata']['language']}"
+                                        show_alert(session_id, {'type': 'warning', 'msg': error})
+                                is_lang_in_tts_engine = (
+                                    session.get('tts_engine') in default_engine_settings and
+                                    final_language in default_engine_settings[session['tts_engine']].get('languages', {})
+                                )
+                                if is_lang_in_tts_engine:
+                                    session['cover'] = get_cover(epubBook, session_id)
+                                    if session.get('cover', False):
+                                        if missing_orig_json:
+                                            raw_blocks = get_blocks(session_id, epubBook)
+                                            if raw_blocks and session.get('translate_enabled'):
+                                                raw_blocks, error = translate_blocks(session_id, list(raw_blocks))
+                                                if error is not None:
+                                                    return error, False
+                                            if raw_blocks:
+                                                session['blocks_orig'] = {
+                                                    "page": 0,
+                                                    "block_resume": 0,
+                                                    "sentence_resume": 0,
                                                     "voice": session['voice'],
                                                     "tts_engine": session['tts_engine'],
                                                     "fine_tuned": session['fine_tuned'],
-                                                    "sentences": [],
+                                                    "blocks": [
+                                                        {
+                                                            "id": str(uuid.uuid4()),
+                                                            "expand": False,
+                                                            "keep": True,
+                                                            "text": t,
+                                                            "voice": session['voice'],
+                                                            "tts_engine": session['tts_engine'],
+                                                            "fine_tuned": session['fine_tuned'],
+                                                            "sentences": [],
+                                                        }
+                                                        for t in raw_blocks if t
+                                                    ],
                                                 }
-                                                for t in raw_blocks if t
-                                            ],
-                                        }
-                                if session.get('blocks_orig', {}):
-                                    if blocks_orig_old:
-                                        if not realign_blocks(session_id, blocks_orig_old):
-                                            # realign failed or nothing to migrate: restart from scratch.
-                                            # loud on purpose: a silent fallback here looks like a random
-                                            # full reconversion and is the whole bug class this guards.
-                                            msg = 'realign_blocks() could not migrate the previous work: restarting the conversion from scratch.'
-                                            print(msg)
-                                            show_alert(session_id, {'type': 'warning', 'msg': msg})
-                                            session['blocks_saved'] = {}
-                                            session['blocks_current'] = {}
-                                            if os.path.exists(session['blocks_saved_json']):
-                                                os.unlink(session['blocks_saved_json'])
-                                    save_json_blocks(session_id, 'blocks_orig')
-                                    if not session.get('blocks_current', {}):
-                                        session['blocks_current'] = copy.deepcopy(session['blocks_orig'])
-                                        save_db_blocks(session_id)
-                                    if session.get('blocks_orig', {}) and session.get('blocks_current', {}):
-                                        sync_globals_to_blocks(session_id)
-                                    if session['blocks_preview']:
-                                        msg = f'Chapters preview requested. Select which block to convert:'
-                                        print(msg)
-                                        progress_status = os.path.basename(session['ebook'])
-                                        return progress_status, True
+                                            if session.get('blocks_orig', {}):
+                                                if blocks_orig_old:
+                                                    if not realign_blocks(session_id, blocks_orig_old):
+                                                        # realign failed or nothing to migrate: restart from scratch.
+                                                        # loud on purpose: a silent fallback here looks like a random
+                                                        # full reconversion and is the whole bug class this guards.
+                                                        msg = 'realign_blocks() could not migrate the previous work: restarting the conversion from scratch.'
+                                                        print(msg)
+                                                        show_alert(session_id, {'type': 'warning', 'msg': msg})
+                                                        session['blocks_saved'] = {}
+                                                        session['blocks_current'] = {}
+                                                        if os.path.exists(session['blocks_saved_json']):
+                                                            os.unlink(session['blocks_saved_json'])
+                                                save_json_blocks(session_id, 'blocks_orig')
+                                        if not session.get('blocks_current', {}):
+                                            session['blocks_current'] = copy.deepcopy(session['blocks_orig'])
+                                            save_db_blocks(session_id)
+                                        if session.get('blocks_orig', {}) and session.get('blocks_current', {}):
+                                            sync_globals_to_blocks(session_id)
+                                            if session['blocks_preview']:
+                                                msg = f'Chapters preview requested. Select which block to convert:'
+                                                print(msg)
+                                                progress_status = os.path.basename(session['ebook'])
+                                                return progress_status, True
+                                            else:
+                                                progress_status, passed = finalize_audiobook(session_id)
+                                                return progress_status, passed
+                                        else:
+                                            error = f"get_blocks() or save_json_blocks() failed! {session['blocks_orig']}"
                                     else:
-                                        progress_status, passed = finalize_audiobook(session_id)
-                                        return progress_status, passed
+                                        error = 'get_cover() failed!'
                                 else:
-                                    error = f"get_blocks() or save_json_blocks() failed! {session['blocks_orig']}"
+                                    error = f"language {final_language} not supported by {session['tts_engine']}!"
                             else:
-                                error = 'get_cover() failed!'
-                        else:
-                            error = f"language {final_language} not supported by {session['tts_engine']}!"
+                                error = 'epubBook.read_epub failed!'
                     else:
-                        error = 'epubBook.read_epub failed!'
+                        error = f"Your device has not enough memory ({total_vram_gb}GB) to run {session['tts_engine']} engine ({device_vram_required}GB)"
                 else:
-                    error = f"Your device has not enough memory ({total_vram_gb}GB) to run {session['tts_engine']} engine ({device_vram_required}GB)"
-            else:
-                error = f"Temporary directory {session['process_dir']} not removed due to failure."
+                    error = f"Temporary directory {session['process_dir']} not removed due to failure."
         if session['cancellation_requested']:
             error = 'Conversion Cancelled'
-            return error, False
+        return error, False
     except Exception as e:
         error = f'convert_ebook() Exception: {e}\n{traceback.format_exc()}'
         return error, False
@@ -4020,9 +4066,11 @@ def finalize_audiobook(session_id:str)->tuple:
         session = context.get_session(session_id)
         is_preview = session.get('blocks_preview', False) if session else False
         result = lambda msg, ok: (gr.update(value=msg), gr.update(value=ok)) if is_preview else (msg, ok)
+
         def _fail(error):
             session['status'] = status_tags['END']
             return result(error, False)
+
         if not session or not session.get('id', False):
             msg = 'session expired!'
             return result(msg, False)
@@ -4079,7 +4127,7 @@ def finalize_audiobook(session_id:str)->tuple:
                     if abs_library_id:
                         a_title = os.path.basename(session['audiobook'])
                         a_author = str(session.get('metadata', {}).get('creator') or '')
-                        ok, msg = upload_to_abs([session['audiobook']], a_title, a_author, session['abs_url'], session['abs_api_token'], abs_library_id)
+                        ok, msg = upload_to_abs([session['audiobook']], a_title, a_author, session['abs_url'],  session['abs_api_token'], abs_library_id)
                         if ok:
                             msg = f'ABS upload: {msg}'
                             print(msg)
@@ -4187,7 +4235,7 @@ def reset_ebook_session(session_id:str, force:bool, filter_keys:bool)->None:
         "blocks_current_db": None,
         "audiobook_overridden": None,
         "metadata": {
-            "title": None,
+            "title": None, 
             "creator": None,
             "contributor": None,
             "language": None,
@@ -4226,23 +4274,23 @@ def unload_tts_manager(tts_manager:Any)->None:
             for key in keys:
                 if key:
                     loaded_tts.pop(key, None)
-            gc.collect()
-            if sys.platform == 'linux':
-                # gc frees the python objects but glibc keeps the pages in its arena:
-                # on jetson unified memory those unreturned pages starve CUDA itself
-                # (NvMap ENOMEM), so hand them back to the OS.
-                try:
-                    import ctypes
-                    ctypes.CDLL('libc.so.6').malloc_trim(0)
-                except Exception:
-                    pass
+        gc.collect()
+        if sys.platform == 'linux':
+            # gc frees the python objects but glibc keeps the pages in its arena:
+            # on jetson unified memory those unreturned pages starve CUDA itself
+            # (NvMap ENOMEM), so hand them back to the OS.
             try:
-                import torch
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-                    torch.cuda.ipc_collect()
+                import ctypes
+                ctypes.CDLL('libc.so.6').malloc_trim(0)
             except Exception:
                 pass
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.ipc_collect()
+        except Exception:
+            pass
     except Exception as e:
         error = f'unload_tts_manager() error: {e}'
         print(error)
