@@ -217,7 +217,7 @@ fi
 ############### FUNCTIONS ##############
 
 ###### DESKTOP APP
-function has_no_display {
+has_no_display() {
 	if [[ "${OSTYPE:-}" == darwin* ]]; then
 		if pgrep -x WindowServer >/dev/null 2>&1 &&
 		   [[ "$(launchctl managername 2>/dev/null)" == "Aqua" ]]; then
@@ -260,7 +260,7 @@ function has_no_display {
 	fi
 }
 
-function open_desktop_app {
+open_desktop_app() {
 	(
 		host=127.0.0.1
 		port=7860
@@ -291,7 +291,7 @@ function open_desktop_app {
 	) &
 }
 
-function mac_app {
+mac_app() {
 	local APP_BUNDLE="$HOME/Applications/$APP_NAME.app"
 	local CONTENTS="$APP_BUNDLE/Contents"
 	local MACOS="$CONTENTS/MacOS"
@@ -365,7 +365,7 @@ PLIST
 	open_desktop_app
 }
 
-function linux_app {
+linux_app() {
 	local MENU_ENTRY="$HOME/.local/share/applications/$APP_NAME.desktop"
 	local DESKTOP_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
 	local DESKTOP_SHORTCUT="$DESKTOP_DIR/$APP_NAME.desktop"
@@ -395,7 +395,7 @@ EOF
 	open_desktop_app
 }
 
-function check_desktop_app {
+check_desktop_app() {
 	if [[ " ${ARGS[*]} " == *" --headless "* ]] || ! has_no_display; then
 		return 0
 	fi
@@ -408,7 +408,7 @@ function check_desktop_app {
 }
 #################
 
-function get_iso3_lang {
+get_iso3_lang() {
 	case "$1" in
 		en) echo "eng" ;;
 		fr) echo "fra" ;;
@@ -436,7 +436,7 @@ function get_iso3_lang {
 	esac
 }
 
-function check_python {
+check_python() {
     if ! command -v python3 &>/dev/null; then
         echo 'Python is not installed.'
         return 1
@@ -459,7 +459,7 @@ function check_python {
     return 0
 }
 
-function check_required_programs {
+check_required_programs() {
 	local programs=("$@")
 	programs_missing=()
 	for program in "${programs[@]}"; do
@@ -502,7 +502,7 @@ function check_required_programs {
 	(( ${#programs_missing[@]} == 0 ))
 }
 
-function install_programs {
+install_programs() {
 	if [[ "${OSTYPE-}" == darwin* ]]; then
 		echo -e "\e[33mInstalling required programs…\e[0m"
 		PACK_MGR="brew install --force"
@@ -672,9 +672,9 @@ EOF
 	fi
 }
 
-function check_conda {
+check_conda() {
 
-    function compare_versions {
+    compare_versions() {
         local ver1=$1
         local ver2=$2
         IFS='.' read -r v1_major v1_minor <<<"$ver1"
@@ -798,7 +798,7 @@ function check_conda {
     return 0
 }
 
-function check_docker {
+check_docker() {
 	if [[ "$DOCKER_MODE" == "podman" ]]; then
 		if command -v podman-compose &> /dev/null; then
 			PODMAN_DESKTOP="1"
@@ -815,13 +815,13 @@ function check_docker {
 	return 1
 }
 
-function install_python_packages {
+install_python_packages() {
 	echo "Installing python dependencies…"
 	PYTHONPATH="$SCRIPT_DIR" python3 -c "import sys; from lib.classes.device_installer import DeviceInstaller; device = DeviceInstaller(); sys.exit(device.install_python_packages())"
 	return $?
 }
 
-function check_device_info {
+check_device_info() {
 	local ARG="$1"
 	python3 - << EOF
 from lib.classes.device_installer import DeviceInstaller
@@ -834,7 +834,7 @@ raise SystemExit(1)
 EOF
 }
 
-function json_get {
+json_get() {
     local key="$1"
     echo "$DEVICE_INFO_STR" | python3 -c "
 import sys, json
@@ -843,7 +843,7 @@ print(data['$key'])
 "
 }
 
-function install_device_packages {
+install_device_packages() {
 	local ARG="$1"
 	python3 - "$ARG" << 'EOF'
 import sys,json
@@ -855,7 +855,7 @@ sys.exit(exit_code)
 EOF
 }
 
-function check_sitecustomized {
+check_sitecustomized() {
 	local src_pyfile="$SCRIPT_DIR/components/sitecustomize.py"
 	local site_packages_path=$(python3 -c "import sysconfig;print(sysconfig.get_paths()['purelib'])")
 	local dst_pyfile="$site_packages_path/sitecustomize.py"
@@ -870,7 +870,7 @@ function check_sitecustomized {
 	return 0
 }
 
-function get_dri_gids {
+get_dri_gids() {
 	local node
 	RENDER_GID=""
 	VIDEO_GID=""
@@ -906,18 +906,24 @@ function get_dri_gids {
 	return 0
 }
 
-function build_docker_image {
+build_docker_image() {
 	local ARG="$1"
-	if [[ "$ARG" == "" ]]; then
-		echo "build_docker_image() error: ARG is empty"
+
+	if [[ -z "$ARG" ]]; then
+		echo "build_docker_image() error: ARG is empty" >&2
 		return 1
 	fi
+
 	local cmd_options=""
 	local py_vers
+	
 	# Base-image Python MUST match the wheel ABI in the device profile: derive it from
 	# pyvenv in $ARG (the single source of truth), not from $DEVICE_TAG.
 	py_vers="$(printf '%s' "$ARG" | python3 -c 'import json,sys; v=json.load(sys.stdin).get("pyvenv"); print(f"{v[0]}.{v[1]}" if v else "")' 2>/dev/null)"
 	[[ -z "$py_vers" ]] && py_vers="$PYTHON_VERSION"
+
+	ISO3_LANG="$(get_iso3_lang "${OS_LANG:-en}")"
+
 	# Compose reads build args ONLY from the compose file build.args, resolved from the
 	# environment -- it ignores PODMAN_BUILD_ARGS and loose --build-arg flags. Export every
 	# value the Dockerfile ARGs consume so the device profile + matching Python reach the
@@ -925,7 +931,9 @@ function build_docker_image {
 	export PYTHON_VERSION="$py_vers"
 	export DOCKER_DEVICE_STR="$ARG"
 	export DOCKER_PROGRAMS_STR="${DOCKER_PROGRAMS[*]}"
-	export CALIBRE_INSTALLER_URL ISO3_LANG
+	export CALIBRE_INSTALLER_URL
+	export ISO3_LANG
+
 	case "$DEVICE_TAG" in
 		cpu)		cmd_options="";;
 		cu*)		cmd_options="--gpus all" ;;
@@ -933,8 +941,9 @@ function build_docker_image {
 		jetson*)	cmd_options="--runtime nvidia --gpus all" ;;
 		xpu)		cmd_options="--device=/dev/dri" ;;
 	esac
-	ISO3_LANG="$(get_iso3_lang "${OS_LANG:-en}")"
+
 	DOCKER_IMG_NAME="${DOCKER_IMG_NAME}:${DEVICE_TAG}"
+
 	case "$DEVICE_TAG" in
 		cpu|mps)	COMPOSE_PROFILES=cpu ;;
 		cu*)		COMPOSE_PROFILES=cuda ;;
@@ -944,23 +953,26 @@ function build_docker_image {
 		*)		COMPOSE_PROFILES=cpu ;;
 	esac
 	export COMPOSE_PROFILES
+	
 	get_dri_gids
 	SERVICE="ebook2audiobook-${COMPOSE_PROFILES}"
+
 	if [[ "$DOCKER_MODE" == "podman" ]]; then
-		if ! command -v podman &>/dev/null; then
-			echo "ERROR: podman is not installed"
+		if ! command -v podman >/dev/null 2>&1; then
+			echo "ERROR: podman is not installed" >&2
 			return 1
 		fi
 		# podman-compose is only needed to RUN the image, not to build it
-		if ! command -v podman-compose &>/dev/null || ! podman-compose -f podman-compose.yml config &>/dev/null; then
-			echo "WARNING: podman-compose is missing or podman-compose.yml is not valid -- the image will still build, but you will not be able to run it with podman-compose"
+		if ! command -v podman-compose >/dev/null 2>&1 || ! podman-compose -f podman-compose.yml config >/dev/null 2>&1; then
+			echo "WARNING: podman-compose is missing or podman-compose.yml is not valid -- the image will still build, but you will not be able to run it with podman-compose" >&2
 		fi
 	elif [[ "$DOCKER_MODE" == "compose" ]]; then
 		if ! docker compose config --services 2>/dev/null | grep -q .; then
-			echo "ERROR: docker compose found no services or yml file is not valid."
+			echo "ERROR: docker compose found no services or yml file is not valid." >&2
 			return 1
 		fi
 	fi
+
 	if [[ "$DOCKER_MODE" == "podman" ]]; then
 		echo "--> Using podman build"
 		podman \
