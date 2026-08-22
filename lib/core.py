@@ -2569,6 +2569,7 @@ def normalize_text(text:str, lang:str, lang_iso1:str, tts_engine:str)->str:
     # Remove emojis
     emoji_pattern = re.compile(f"[{''.join(emojis_list)}]+", flags=re.UNICODE)
     text = emoji_pattern.sub('', text)
+    print(text)
     if lang in abbreviations_mapping:
         mapping = abbreviations_mapping[lang]
         # Sort keys by descending length so longer ones match first
@@ -2594,7 +2595,6 @@ def normalize_text(text:str, lang:str, lang_iso1:str, tts_engine:str)->str:
     # Replace punctuations causing hallucinations
     pattern = f"[{''.join(map(re.escape, punctuation_switch.keys()))}]"
     text = re.sub(pattern, lambda match: punctuation_switch.get(match.group(), match.group()), text)
-    print(text)
     # remove unwanted chars
     chars_remove_table = str.maketrans({ch: ' ' for ch in chars_remove})
     text = text.translate(chars_remove_table)
