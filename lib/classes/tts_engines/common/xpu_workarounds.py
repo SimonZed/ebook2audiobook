@@ -4,11 +4,11 @@ import torch
 
 def move_hifigan_to_cpu(engine):
     """
-    Move a HiFi-GAN vocoder to CPU to bypass oneDNN JIT compilation bugs 
+    Move ONLY the HiFi-GAN waveform_decoder to CPU to bypass oneDNN JIT bugs 
     on Intel XPU (e.g., "could not create a primitive" in dilated convolutions).
     
-    Safe to call on any engine: it's a no-op if no hifigan_decoder is present
-    or if XPU is not available.
+    We intentionally leave the speaker_encoder on the original device to avoid 
+    device mismatch errors during get_conditioning_latents().
     """
     # Allow explicit opt-out via environment variable for testing/debugging
     if os.environ.get("E2A_XPU_HIFIGAN_CPU", "1") != "1":
@@ -21,10 +21,14 @@ def move_hifigan_to_cpu(engine):
     if decoder is None:
         return engine
 
-    print("[XPU Workaround] Moving HiFi-GAN vocoder to CPU to bypass oneDNN JIT bug...")
+    # Target ONLY the waveform generator, not the speaker encoder
+    waveform_decoder = getattr(decoder, "waveform_decoder", None)
+    if waveform_decoder is None:
+        return engine
+
+    print("[XPU Workaround] Moving HiFi-GAN waveform_decoder to CPU to bypass oneDNN JIT bug...")
     
-    # Keep a reference to the original forward pass
-    original_forward = decoder.forward
+    original_forward = waveform_decoder.forward
 
     def cpu_forward(*args, **kwargs):
         # Move all tensor inputs to CPU before calling the original forward
@@ -32,8 +36,8 @@ def move_hifigan_to_cpu(engine):
         cpu_kwargs = {k: v.cpu() if isinstance(v, torch.Tensor) else v for k, v in kwargs.items()}
         return original_forward(*cpu_args, **cpu_kwargs)
 
-    # Apply the patch and move the module to CPU
-    decoder.forward = cpu_forward
-    engine.hifigan_decoder = decoder.cpu()
+    # Apply the patch and move ONLY the waveform_decoder to CPU
+    waveform_decoder.forward = cpu_forward
+    decoder.waveform_decoder = waveform_decoder.cpu()
     
     return engine
