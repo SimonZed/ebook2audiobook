@@ -1718,6 +1718,7 @@ def filter_blocks(session_id:str, idx:int, doc:EpubHtml, stanza_nlp:Pipeline, is
                             lambda m: year2words(m.group(), lang, lang_iso1, is_num2words_compat),
                             text
                         )
+            print(text)
             msg = 'Convert romans to numbers…'
             print(msg)
             text = roman2number(text)
@@ -2569,7 +2570,6 @@ def normalize_text(text:str, lang:str, lang_iso1:str, tts_engine:str)->str:
     # Remove emojis
     emoji_pattern = re.compile(f"[{''.join(emojis_list)}]+", flags=re.UNICODE)
     text = emoji_pattern.sub('', text)
-    print(text)
     if lang in abbreviations_mapping:
         mapping = abbreviations_mapping[lang]
         # Sort keys by descending length so longer ones match first
