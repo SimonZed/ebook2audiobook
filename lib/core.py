@@ -2618,9 +2618,9 @@ def normalize_text(text:str, lang:str, lang_iso1:str, tts_engine:str)->str:
     # Replace special chars with words
     specialchars = specialchars_mapping.get(lang, specialchars_mapping.get(default_language_code, specialchars_mapping['eng']))
     specialchars_table = {ord(char): f" {word} " for char, word in specialchars.items()}
+    print(text)
     text = text.translate(specialchars_table)
     text = ' '.join(text.split())
-    print(text)
     return text
 
 def block_hash(block: dict) -> str:
