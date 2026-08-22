@@ -2092,6 +2092,16 @@ def get_sentences(session_id:str, text:str)->list|None:
         print(f'get_sentences() error: {e}')
         return None
 
+def natural_sort_key(path:str)->list:
+    """Natural sort key on the file BASENAME only.
+    Full paths must NOT be sorted: gradio uploaded files live in per-file
+    hashed cache dirs (<cache>/<hash>/<name>.<ext>) whose hash would
+    dominate the order. Digit runs compare numerically so
+    'volume-2' < 'volume-10'."""
+    name = os.path.basename(str(path)).casefold()
+    return [int(chunk) if chunk.isdigit() else chunk
+            for chunk in re.split(r'(\d+)', name)]
+
 def get_sanitized(str:str, replacement:str='_')->str:
     str = str.replace('&', 'And')
     forbidden_chars = r'[<>:"/\\|?*\x00-\x1F ()]'
@@ -3676,6 +3686,8 @@ def convert_ebook(args:dict)->tuple:
                 args['translate_iso1'] = None
                 final_language = str(args['language'])
             session['ebook_mode'] = args['ebook_mode']
+            if session['ebook_mode'] == ebook_modes['DIRECTORY'] and isinstance(session.get('ebook_list'), list):
+                session['ebook_list'] = sorted(session['ebook_list'], key=natural_sort_key)
             if session['ebook_mode'] == ebook_modes['TEXT']:
                 if not args['ebook_textarea']:
                     error = 'Ebook textarea is empty.'

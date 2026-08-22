@@ -2357,10 +2357,11 @@ def build_interface(args:dict)->gr.Blocks:
                                         if isinstance(args['ebook_list'], list):
                                             default_voice = session.get('voice')
                                             voice_map = dict(session.get('voice_map') or {})
-                                            clean_list = sorted([
+                                            clean_list = [
                                                 f for f in args['ebook_list']
                                                 if any(f.endswith(ext) for ext in ebook_formats)
-                                            ])
+                                            ]
+                                            clean_list.sort(key=natural_sort_key)
                                             for skipped in [f for f in args['ebook_list'] if f not in clean_list]:
                                                 show_alert(session_id, {
                                                     "type": "warning",
