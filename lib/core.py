@@ -1660,7 +1660,6 @@ def filter_blocks(session_id:str, idx:int, doc:EpubHtml, stanza_nlp:Pipeline, is
             text = break_between_alnum_re.sub(' ', text)
             # strip non-prose content; preserves math signs for math2words
             text = non_text_filter(text)
-            print(text)
             # escape all SML tags to not be touched by any text treatment
             text, sml_blocks = escape_sml(text)
             if stanza_nlp:
