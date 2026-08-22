@@ -1643,6 +1643,7 @@ def filter_blocks(session_id:str, idx:int, doc:EpubHtml, stanza_nlp:Pipeline, is
                 clean_list.append(current)
                 i += 1
             text = ' '.join(clean_list)
+            print(text)
             if not re.search(r"[^\W_]", text):
                 error = 'No valid text found!'
                 print(error)
@@ -1718,7 +1719,6 @@ def filter_blocks(session_id:str, idx:int, doc:EpubHtml, stanza_nlp:Pipeline, is
                             lambda m: year2words(m.group(), lang, lang_iso1, is_num2words_compat),
                             text
                         )
-            print(text)
             msg = 'Convert romans to numbers…'
             print(msg)
             text = roman2number(text)
