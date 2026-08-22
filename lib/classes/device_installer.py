@@ -1865,8 +1865,8 @@ class DeviceInstaller():
                                     msg = f'Installing ROCm SDK {rocm_ver}…'
                                     print(msg)
                                     subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-cache-dir', *sdk_pkgs])
-                                torch_pkg = f'{url}/{rocm_tag}/torch-{torch_version_matrix}%2B{real_tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl'
-                                torchaudio_pkg = f'{url}/{rocm_tag}/torchaudio-{self.torchaudio_version(torchaudio_version_matrix)}%2B{real_tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl'
+                                torch_pkg = f'{url}/{url_tag}/torch-{torch_version_matrix}%2B{real_tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl'
+                                torchaudio_pkg = f'{url}/{url_tag}/torchaudio-{self.torchaudio_version(torchaudio_version_matrix)}%2B{real_tag}-{tag_py}-{tag_py}-{os_env}_{arch}.whl'
                                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-cache-dir', '--no-deps', torch_pkg, torchaudio_pkg])
                             else:
                                 url = default_pytorch_url
@@ -1893,11 +1893,11 @@ class DeviceInstaller():
                                     try:
                                         subprocess.check_call([sys.executable, '-c', 'from torchcodec.decoders import AudioDecoder'])
                                     except subprocess.CalledProcessError:
-                                        error = 'torchcodec is installed but cannot be imported. Please check the log and check if ffmpeg is installed as ahared and its path registered in your OS lib path.'
+                                        error = 'torchcodec is installed but cannot be imported. Please check the log and check if ffmpeg is installed as shared and its path registered in your OS lib path.'
                                         print(error)
                                         return 1
                                 else:
-                                    error = 'torchcodec not installed! Please check the log and if ffmpeg is installed as ahared and its path registered in your OS lib path.'
+                                    error = 'torchcodec not installed! Please check the log and if ffmpeg is installed as shared and its path registered in your OS lib path.'
                                     print(error)
                                     return 1
                         except subprocess.CalledProcessError as e:

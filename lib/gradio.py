@@ -1070,6 +1070,7 @@ def build_interface(args:dict)->gr.Blocks:
                 visible_buttons = 'hidden'
                 enabled_convert_btn = False
                 session = context.get_session(session_id)
+                outputs = tuple([gr.update(interactive=False) for _ in range(9)])
                 if session and session.get('id', False):
                     outputs = tuple([gr.update(interactive=True) for _ in range(9)])
                     enabled_convert_btn = True if (ebook_src and ebook_mode != ebook_modes['TEXT']) or (ebook_textarea and ebook_mode == ebook_modes['TEXT']) else enabled_convert_btn

@@ -5,7 +5,7 @@
 # `pull_policy: never` means `up` uses the local image or fails loudly. The
 # image is produced by ebook2audiobook.command --script_mode build_docker
 # (DOCKER_MODE=compose runs `docker compose build` against the build: block
-# below). Only the FROM base (python:<ver>-slim-bookworm) is fetched remotely.
+# below). Only the FROM base (python:<ver>-slim-trixie) is fetched remotely.
 #
 # The build context is the WHOLE repo, not just the Dockerfile: the Dockerfile
 # does `COPY . /app` and then runs

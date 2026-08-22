@@ -2467,30 +2467,25 @@ def foreign2latin(text:str, base_lang:str)->str:
             buf.append(_romanize(t))
         else:
             buf.append(t)
-    out:str = ''
+    out: str = ''
+    joiners = ("'", "\u2018", "\u2019")  # stay glued to the next word (contractions)
     for i, t in enumerate(buf):
         if i == 0:
             out += t
         else:
-            out: str = ''
-            joiners = ("'", "\u2018", "\u2019")  # stay glued to the next word (contractions)
-            for i, t in enumerate(buf):
-                if i == 0:
-                    out += t
-                else:
-                    prev = buf[i - 1]
-                    prev_is_word = bool(re.match(r"^\w+$", prev))
-                    curr_is_word = bool(re.match(r"^\w+$", t))
-                    prev_is_protected = prev in protected
-                    curr_is_protected = t in protected
-                    if prev_is_word and curr_is_word:
-                        out += ' ' + t
-                    elif prev_is_protected or curr_is_protected:
-                        out += ' ' + t
-                    elif not prev_is_word and not prev_is_protected and curr_is_word and prev not in joiners:
-                        out += ' ' + t
-                    else:
-                        out += t
+            prev = buf[i - 1]
+            prev_is_word = bool(re.match(r"^\w+$", prev))
+            curr_is_word = bool(re.match(r"^\w+$", t))
+            prev_is_protected = prev in protected
+            curr_is_protected = t in protected
+            if prev_is_word and curr_is_word:
+                out += ' ' + t
+            elif prev_is_protected or curr_is_protected:
+                out += ' ' + t
+            elif not prev_is_word and not prev_is_protected and curr_is_word and prev not in joiners:
+                out += ' ' + t
+            else:
+                out += t
     for k, v in protected.items():
         out = out.replace(k, v)
     return out
