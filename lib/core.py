@@ -2472,10 +2472,25 @@ def foreign2latin(text:str, base_lang:str)->str:
         if i == 0:
             out += t
         else:
-            if re.match(r"^\w+$", buf[i - 1]) and re.match(r"^\w+$", t):
-                out += ' ' + t
-            else:
-                out += t
+            out: str = ''
+            joiners = ("'", "\u2018", "\u2019")  # stay glued to the next word (contractions)
+            for i, t in enumerate(buf):
+                if i == 0:
+                    out += t
+                else:
+                    prev = buf[i - 1]
+                    prev_is_word = bool(re.match(r"^\w+$", prev))
+                    curr_is_word = bool(re.match(r"^\w+$", t))
+                    prev_is_protected = prev in protected
+                    curr_is_protected = t in protected
+                    if prev_is_word and curr_is_word:
+                        out += ' ' + t
+                    elif prev_is_protected or curr_is_protected:
+                        out += ' ' + t
+                    elif not prev_is_word and not prev_is_protected and curr_is_word and prev not in joiners:
+                        out += ' ' + t
+                    else:
+                        out += t
     for k, v in protected.items():
         out = out.replace(k, v)
     return out
@@ -2553,7 +2568,7 @@ def normalize_text(text:str, lang:str, lang_iso1:str, tts_engine:str)->str:
             
     # Remove emojis
     emoji_pattern = re.compile(f"[{''.join(emojis_list)}]+", flags=re.UNICODE)
-    emoji_pattern.sub('', text)
+    text = emoji_pattern.sub('', text)
     if lang in abbreviations_mapping:
         mapping = abbreviations_mapping[lang]
         # Sort keys by descending length so longer ones match first
