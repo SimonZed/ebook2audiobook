@@ -2620,6 +2620,7 @@ def normalize_text(text:str, lang:str, lang_iso1:str, tts_engine:str)->str:
     specialchars_table = {ord(char): f" {word} " for char, word in specialchars.items()}
     text = text.translate(specialchars_table)
     text = ' '.join(text.split())
+    print(text)
     return text
 
 def block_hash(block: dict) -> str:
