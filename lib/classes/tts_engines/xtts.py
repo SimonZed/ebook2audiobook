@@ -1,6 +1,5 @@
 from lib.classes.tts_engines.common.headers import *
 from lib.classes.tts_engines.common.preset_loader import load_engine_presets
-from lib.classes.tts_engines.common.xpu_workarounds import move_hifigan_to_cpu
 
 #sys.stderr = StdoutFilter(sys.stdout)
 
@@ -63,9 +62,6 @@ class XTTS(TTSUtils, TTSRegistry, name='xtts'):
                 if self.session.get(key) is not None
             }
             self.engine = self.load_engine()
-            # Add the XPU WORKAROUND right after the engine loads
-            # This is a strict no-op if not on XPU or if the engine lacks hifigan_decoder
-            self.engine = move_hifigan_to_cpu(self.engine)
         except Exception as e:
             error = f'__init__() error: {e}'
             raise ValueError(error)
